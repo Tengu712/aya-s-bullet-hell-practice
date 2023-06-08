@@ -30,12 +30,16 @@ impl System {
         // create sstar instances
         let window_app = WindowApp::new("Aya's Bullet-Hell Practice", sw, sh);
         let vulkan_app = VulkanApp::new(&window_app, 10);
+        let glyph_rasterizer =
+            GlyphRasterizer::new("./res/mplus-2p-medium.ttf").unwrap_or_else(|e| ss_error(&e));
 
         // finish
         Self {
             scene_scale,
             window_app,
             vulkan_app,
+            glyph_rasterizer,
+            text_infos: HashMap::new(),
             js_map,
             ub: None,
             tasks: Vec::new(),

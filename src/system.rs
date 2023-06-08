@@ -2,7 +2,8 @@ mod general;
 pub mod graphics;
 pub mod input;
 
-use sstar::{vulkan::*, window::*};
+use graphics::TextInfo;
+use sstar::{bitmap::font::*, vulkan::*, window::*};
 use std::collections::HashMap;
 
 pub struct System {
@@ -11,6 +12,8 @@ pub struct System {
     scene_scale: f32,
     window_app: WindowApp,
     vulkan_app: VulkanApp,
+    glyph_rasterizer: GlyphRasterizer,
+    text_infos: HashMap<usize, TextInfo>,
     /// A hashmap to get a user configured joystick keycode from a keyboard keycode.
     js_map: HashMap<Keycode, Keycode>,
     /// It is passed to the VulkanApp::render method.
