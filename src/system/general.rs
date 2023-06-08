@@ -3,23 +3,35 @@ use super::*;
 use crate::scene::game::*;
 use crate::scene::*;
 
+use sstar::log::*;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+
 impl System {
     /// A constructor for this game.
     /// WARNING: It must be called only once at runtime.
     pub fn new() -> Self {
-        // TODO: create it from a configuration file.
-        let scene_scale = 1.0;
-        let scene_width = (BASE_SCENE_WIDTH_F32 * scene_scale) as u32;
-        let scene_height = (BASE_SCENE_HEIGHT_F32 * scene_scale) as u32;
-        let mut js_map = HashMap::new();
-        js_map.insert(Keycode::Left, Keycode::JsButtonLeft);
-        js_map.insert(Keycode::Right, Keycode::JsButtonRight);
-        js_map.insert(Keycode::Up, Keycode::JsButtonUp);
-        js_map.insert(Keycode::Down, Keycode::JsButtonDown);
+        // read settings.cfg into a hashmap
+        let file = File::open("settings.cfg")
+            .unwrap_or_else(|e| ss_error(&format!("failed to open settings.cfg : {e}")));
+        let mut settings = HashMap::new();
+        for l in BufReader::new(file).lines() {
+            let l = l.unwrap();
+            let (k, v) = l
+                .split_once('=')
+                .unwrap_or_else(|| ss_error(&format!("invalid line '{l}' found in settings.cfg.")));
+            settings.insert(k.to_string(), v.to_string());
+        }
 
-        let window_app = WindowApp::new("Aya's Bullet-Hell Practice", scene_width, scene_height);
+        // configure
+        let (scene_scale, sw, sh) = graphics::configure(&settings);
+        let js_map = input::configure(&settings);
+
+        // create sstar instances
+        let window_app = WindowApp::new("Aya's Bullet-Hell Practice", sw, sh);
         let vulkan_app = VulkanApp::new(&window_app, 10);
 
+        // finish
         Self {
             scene_scale,
             window_app,

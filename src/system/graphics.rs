@@ -2,7 +2,25 @@ use super::*;
 
 use crate::resource::*;
 
-use sstar::{bitmap::image::*, vulkan::image::*};
+use sstar::{bitmap::image::*, log::*, vulkan::image::*};
+
+pub const BASE_SCENE_WIDTH: u32 = 1280;
+pub const BASE_SCENE_HEIGHT: u32 = 960;
+pub const BASE_SCENE_WIDTH_F32: f32 = BASE_SCENE_WIDTH as f32;
+pub const BASE_SCENE_HEIGHT_F32: f32 = BASE_SCENE_HEIGHT as f32;
+
+pub(super) fn configure(settings: &HashMap<String, String>) -> (f32, u32, u32) {
+    let scene_scale = settings
+        .get("window-scale")
+        .unwrap_or_else(|| ss_error("window-scale is not found in settings.cfg."))
+        .parse::<f32>()
+        .unwrap_or_else(|_| ss_error("window-scale is not a float number."));
+    (
+        scene_scale,
+        (BASE_SCENE_WIDTH_F32 * scene_scale) as u32,
+        (BASE_SCENE_HEIGHT_F32 * scene_scale) as u32,
+    )
+}
 
 impl System {
     pub fn draw(&mut self, mut pc: PushConstant) {

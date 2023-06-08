@@ -1,15 +1,9 @@
-mod draw;
 mod general;
+pub mod graphics;
 pub mod input;
 
-use std::collections::HashMap;
-
 use sstar::{vulkan::*, window::*};
-
-pub const BASE_SCENE_WIDTH: u32 = 1280;
-pub const BASE_SCENE_HEIGHT: u32 = 960;
-pub const BASE_SCENE_WIDTH_F32: f32 = BASE_SCENE_WIDTH as f32;
-pub const BASE_SCENE_HEIGHT_F32: f32 = BASE_SCENE_HEIGHT as f32;
+use std::collections::HashMap;
 
 pub struct System {
     /// A constant for adjusting the value of PushConstants based on the runtime scene size.
