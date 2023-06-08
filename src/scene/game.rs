@@ -1,6 +1,7 @@
 use super::*;
 
 use crate::resource::*;
+use crate::system::input::*;
 
 use sstar::vulkan::PushConstant;
 
@@ -15,6 +16,12 @@ impl GameScene {
 
 impl Scene for GameScene {
     fn update(&mut self, system: &mut System) -> (Option<Box<dyn Scene>>, bool) {
+        // move
+        let left = system.get_input(AbpKeycode::Left);
+        if left > 0 {
+            sstar::log::ss_debug(&format!("left: {left}"));
+        }
+
         // set image texture for game
         system.set_image_texture(IMG_TEX_GAME.id);
 

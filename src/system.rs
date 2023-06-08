@@ -1,5 +1,8 @@
 mod draw;
 mod general;
+pub mod input;
+
+use std::collections::HashMap;
 
 use sstar::{vulkan::*, window::*};
 
@@ -14,6 +17,8 @@ pub struct System {
     scene_scale: f32,
     window_app: WindowApp,
     vulkan_app: VulkanApp,
+    /// A hashmap to get a user configured joystick keycode from a keyboard keycode.
+    js_map: HashMap<Keycode, Keycode>,
     /// It is passed to the VulkanApp::render method.
     /// It is set to None every frame.
     ub: Option<UniformBuffer>,

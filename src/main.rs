@@ -2,6 +2,8 @@ mod resource;
 mod scene;
 mod system;
 
+use system::System;
+
 fn main() {
-    system::System::new().run();
+    System::new().run();
 }
