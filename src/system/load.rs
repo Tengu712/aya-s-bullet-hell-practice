@@ -2,12 +2,11 @@ use super::*;
 
 use crate::resource::*;
 
-use sstar::{bitmap::image::*, log::*, vulkan::image::*};
+use sstar::{bitmap::image::*, log::*};
 
 impl System {
     pub(super) fn load_resources_first_frame(&mut self) {
-        // TODO: loadscene background
-        // self.img(TextureID::Load, "./res/load.png");
+        self.img(TextureID::Load, "./res/load.png");
     }
 
     pub(super) fn load_resources(&mut self) {
@@ -21,14 +20,9 @@ impl System {
 
     fn img(&mut self, id: TextureID, path: &str) {
         let bitmap = create_bitmap_from_file(path).unwrap_or_else(|e| ss_error(&e));
-        load_image_texture(
-            &mut self.vulkan_app,
-            id as usize,
-            bitmap.width,
-            bitmap.height,
-            &bitmap.data,
-        )
-        .unwrap_or_else(|e| ss_error(&e));
+        self.vulkan_app
+            .load_image_texture(id as usize, bitmap.width, bitmap.height, &bitmap.data)
+            .unwrap_or_else(|e| ss_error(&e));
     }
 
     fn txt(&mut self, id: TextureID, size: f32, txts: &[&str]) {
@@ -77,13 +71,8 @@ impl System {
         }
 
         // load
-        load_image_texture(
-            &mut self.vulkan_app,
-            id as usize,
-            width as u32,
-            height as u32,
-            &bitmap,
-        )
-        .unwrap_or_else(|e| ss_error(&e));
+        self.vulkan_app
+            .load_image_texture(id as usize, width as u32, height as u32, &bitmap)
+            .unwrap_or_else(|e| ss_error(&e));
     }
 }

@@ -53,9 +53,19 @@ impl System {
     pub fn run(mut self) {
         // load resources
         self.load_resources_first_frame();
-        // TODO: render load scene.
+        self.set_image_texture(TextureID::Load);
+        self.draw(
+            PushConstant {
+                scl: [2024.0, 1024.0, 1.0, 0.0],
+                ..Default::default()
+            },
+            Position::UpperLeftUI,
+        );
         self.render();
         self.load_resources();
+        self.vulkan_app
+            .unload_image_texture(TextureID::Load as usize)
+            .unwrap();
 
         // mainloop
         // TODO: start with title scene.
@@ -70,7 +80,7 @@ impl System {
             }
             self.set_image_texture(TextureID::SystemCharactors);
             // TODO: get fps.
-            self.draw_text_directly("00.0fps", 1280.0, 960.0, Position::LowerRightUI);
+            self.draw_text_directly("00.0fps", 1270.0, 960.0, Position::LowerRightUI);
             self.render();
         }
 

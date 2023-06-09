@@ -94,12 +94,18 @@ impl System {
         }
         for mut pc in pcs {
             match pos {
+                Position::Center |
+                Position::CenterUI => {
+                    pc.trs[0] -= ox / 2.0;
+                    pc.trs[1] -= pc.scl[1] / 2.0;
+                },
+                Position::UpperLeftUI => (),
                 Position::LowerRightUI => {
                     pc.trs[0] -= ox;
-                }
-                _ => (),
+                    pc.trs[1] -= pc.scl[1];
+                },
             }
-            self.draw(pc, pos.clone());
+            self.draw(pc, Position::UpperLeftUI);
         }
     }
 
