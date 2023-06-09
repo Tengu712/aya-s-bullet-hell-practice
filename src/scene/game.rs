@@ -1,7 +1,7 @@
 use super::*;
 
-use crate::resource::{image::*, text::*};
-use crate::system::input::*;
+use crate::resource::*;
+use crate::system::{graphics::*, input::*};
 
 use sstar::vulkan::PushConstant;
 
@@ -22,23 +22,21 @@ impl Scene for GameScene {
         }
 
         // set image texture for game
-        system.set_image_texture(IMG_TEX_GAME.id);
+        system.set_image_texture(TextureID::Game);
 
         // frame
         let pc_frame = PushConstant {
             scl: [2048.0, 2048.0, 1.0, 0.0],
             ..Default::default()
         };
-        system.draw_ui(pc_frame);
+        system.draw(pc_frame, Position::UpperLeftUI);
 
         // DEBUG:
-        system.set_image_texture(TXT_TEXTURE_SELECT.id);
-        system.draw_text(TXT_SELECT_SETTING.tid, 640.0, 480.0);
-        system.draw_text(TXT_SELECT_ASSEMBLE.tid, 0.0, 0.0);
+        system.set_image_texture(TextureID::SelectText);
+        system.draw_text("Assemble", 640.0, 480.0, Position::CenterUI);
+        system.draw_text("Settings", 0.0, 0.0, Position::UpperLeftUI);
 
         // finish
         (None, false)
     }
-
-    fn terminate(&mut self, _: &mut System) {}
 }

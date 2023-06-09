@@ -1,6 +1,9 @@
+use super::graphics::Position;
 use super::*;
 
-use crate::scene::{load::LoadScene, Scene};
+use crate::resource::TextureID;
+use crate::scene::game::GameScene;
+use crate::scene::Scene;
 
 use sstar::log::*;
 use std::fs::File;
@@ -48,25 +51,39 @@ impl System {
     /// A method to run this game.
     /// It block thread until the game ends.
     pub fn run(mut self) {
-        let mut scene: Box<dyn Scene> = Box::new(LoadScene::new());
+        // load resources
+        self.load_resources_first_frame();
+        // TODO: render load scene.
+        self.render();
+        self.load_resources();
 
+        // mainloop
+        // TODO: start with title scene.
+        let mut scene: Box<dyn Scene> = Box::new(GameScene::new());
         while self.window_app.do_events() {
             let (next, end) = scene.update(&mut self);
+            if let Some(next) = next {
+                scene = next;
+            }
             if end {
                 break;
             }
-            self.vulkan_app
-                .render(self.ub.as_ref(), &self.tasks)
-                .unwrap();
-            self.ub = None;
-            self.tasks.clear();
-            if let Some(next) = next {
-                scene.terminate(&mut self);
-                scene = next;
-            }
+            self.set_image_texture(TextureID::SystemCharactors);
+            // TODO: get fps.
+            self.draw_text_directly("00.0fps", 1280.0, 960.0, Position::LowerRightUI);
+            self.render();
         }
 
+        // finish
         self.vulkan_app.terminate();
         self.window_app.terminate();
+    }
+
+    fn render(&mut self) {
+        self.vulkan_app
+            .render(self.ub.as_ref(), &self.tasks)
+            .unwrap();
+        self.ub = None;
+        self.tasks.clear();
     }
 }

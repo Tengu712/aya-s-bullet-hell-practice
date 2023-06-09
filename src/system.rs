@@ -1,10 +1,16 @@
 mod general;
 pub mod graphics;
 pub mod input;
+mod load;
 
-use graphics::TextInfo;
 use sstar::{bitmap::font::*, vulkan::*, window::*};
 use std::collections::HashMap;
+
+struct TextInfo {
+    width: f32,
+    height: f32,
+    uv: [f32; 4],
+}
 
 pub struct System {
     /// A constant for adjusting the value of PushConstants based on the runtime scene size.
@@ -13,7 +19,7 @@ pub struct System {
     window_app: WindowApp,
     vulkan_app: VulkanApp,
     glyph_rasterizer: GlyphRasterizer,
-    text_infos: HashMap<usize, TextInfo>,
+    text_infos: HashMap<String, TextInfo>,
     /// A hashmap to get a user configured joystick keycode from a keyboard keycode.
     js_map: HashMap<Keycode, Keycode>,
     /// It is passed to the VulkanApp::render method.
