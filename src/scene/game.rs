@@ -8,9 +8,7 @@ use sstar::vulkan::PushConstant;
 pub struct GameScene;
 
 impl GameScene {
-    pub fn new(system: &mut System) -> Self {
-        system.load_image_texture(&IMG_TEX_GAME);
-        system.load_text_texture(&TXT_TEXTURE_SELECT);
+    pub fn new() -> Self {
         Self
     }
 }
@@ -41,4 +39,6 @@ impl Scene for GameScene {
         // finish
         (None, false)
     }
+
+    fn terminate(&mut self, _: &mut System) {}
 }

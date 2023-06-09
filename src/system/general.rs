@@ -1,7 +1,6 @@
 use super::*;
 
-use crate::scene::game::*;
-use crate::scene::*;
+use crate::scene::{load::LoadScene, Scene};
 
 use sstar::log::*;
 use std::fs::File;
@@ -28,7 +27,7 @@ impl System {
         let js_map = input::configure(&settings);
 
         // create sstar instances
-        let window_app = WindowApp::new("Aya's Bullet-Hell Practice", sw, sh);
+        let window_app = WindowApp::new("射命丸文の弾幕稽古", sw, sh);
         let vulkan_app = VulkanApp::new(&window_app, 10);
         let glyph_rasterizer =
             GlyphRasterizer::new("./res/mplus-2p-medium.ttf").unwrap_or_else(|e| ss_error(&e));
@@ -49,14 +48,10 @@ impl System {
     /// A method to run this game.
     /// It block thread until the game ends.
     pub fn run(mut self) {
-        // TODO: start with load scene.
-        let mut scene: Box<dyn Scene> = Box::new(GameScene::new(&mut self));
+        let mut scene: Box<dyn Scene> = Box::new(LoadScene::new());
 
         while self.window_app.do_events() {
             let (next, end) = scene.update(&mut self);
-            if let Some(next) = next {
-                scene = next;
-            }
             if end {
                 break;
             }
@@ -65,6 +60,10 @@ impl System {
                 .unwrap();
             self.ub = None;
             self.tasks.clear();
+            if let Some(next) = next {
+                scene.terminate(&mut self);
+                scene = next;
+            }
         }
 
         self.vulkan_app.terminate();

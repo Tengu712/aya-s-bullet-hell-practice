@@ -135,4 +135,13 @@ impl System {
         )
         .unwrap_or_else(|e| ss_error(&e));
     }
+
+    // TODO:
+    /*
+    pub fn unload_image_texture(&mut self, img_tex: &ImageTexture) {
+        self.vulkan_app
+            .unload(img_tex.id)
+            .unwrap_or_else(|e| ss_error(&e));
+    }
+    */
 }
