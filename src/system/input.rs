@@ -2,19 +2,57 @@ use super::*;
 
 use sstar::log::*;
 
-pub enum AbpKeycode {
-    Left,
-    Right,
-    Up,
-    Down,
-    Z,
-    X,
-    Shift,
-    Escape,
-}
+const KB_STR_KEY: [(&'static str, Keycode); 46] = [
+    ("a", Keycode::KeyA),
+    ("b", Keycode::KeyB),
+    ("c", Keycode::KeyC),
+    ("d", Keycode::KeyD),
+    ("e", Keycode::KeyE),
+    ("f", Keycode::KeyF),
+    ("g", Keycode::KeyG),
+    ("h", Keycode::KeyH),
+    ("i", Keycode::KeyI),
+    ("j", Keycode::KeyJ),
+    ("k", Keycode::KeyK),
+    ("l", Keycode::KeyL),
+    ("m", Keycode::KeyM),
+    ("n", Keycode::KeyN),
+    ("o", Keycode::KeyO),
+    ("p", Keycode::KeyP),
+    ("q", Keycode::KeyQ),
+    ("r", Keycode::KeyR),
+    ("s", Keycode::KeyS),
+    ("t", Keycode::KeyT),
+    ("u", Keycode::KeyU),
+    ("v", Keycode::KeyV),
+    ("w", Keycode::KeyW),
+    ("x", Keycode::KeyX),
+    ("y", Keycode::KeyY),
+    ("z", Keycode::KeyZ),
+    ("0", Keycode::Key0),
+    ("1", Keycode::Key1),
+    ("2", Keycode::Key2),
+    ("3", Keycode::Key3),
+    ("4", Keycode::Key4),
+    ("5", Keycode::Key5),
+    ("6", Keycode::Key6),
+    ("7", Keycode::Key7),
+    ("8", Keycode::Key8),
+    ("9", Keycode::Key9),
+    ("up", Keycode::Up),
+    ("left", Keycode::Left),
+    ("down", Keycode::Down),
+    ("right", Keycode::Right),
+    ("enter", Keycode::Enter),
+    ("space", Keycode::Space),
+    ("shift", Keycode::Shift),
+    ("tab", Keycode::Tab),
+    ("control", Keycode::Control),
+    ("escape", Keycode::Escape),
+];
 
-// TODO: support for axis.
-const STR_JSC: [(&'static str, Keycode); 13] = [
+// TODO: add axis
+const JS_STR_KEY: [(&'static str, Keycode); 13] = [
     ("a", Keycode::JsButtonA),
     ("b", Keycode::JsButtonB),
     ("x", Keycode::JsButtonX),
@@ -30,46 +68,29 @@ const STR_JSC: [(&'static str, Keycode); 13] = [
     ("start", Keycode::JsButtonStart),
 ];
 
-pub(super) fn configure(settings: &HashMap<String, String>) -> HashMap<Keycode, Keycode> {
-    let str_jsc = HashMap::from(STR_JSC);
+pub(super) fn configure(settings: &mut HashMap<String, String>) -> HashMap<Keycode, Keycode> {
+    let js_str_key = HashMap::from(JS_STR_KEY);
     let mut js_map = HashMap::new();
-    let mut inner = |k: &'static str, kc: Keycode| {
-        let v = settings
-            .get(k)
-            .unwrap_or_else(|| ss_error(&format!("'{k}' not found in settings.cfg.")));
-        let jsc = str_jsc
-            .get(v.as_str())
-            .unwrap_or_else(|| ss_error(&format!("invalid key '{v}' found in settings.cfg.")));
-        js_map.insert(kc, jsc.clone());
-    };
-    inner("left", Keycode::Left);
-    inner("right", Keycode::Right);
-    inner("up", Keycode::Up);
-    inner("down", Keycode::Down);
-    inner("z", Keycode::KeyZ);
-    inner("x", Keycode::KeyX);
-    inner("shift", Keycode::Shift);
-    inner("escape", Keycode::Escape);
+    for (s, kkc) in KB_STR_KEY {
+        if let Some(v) = settings.remove(s) {
+            let jkc = js_str_key
+                .get(v.as_str())
+                .unwrap_or_else(|| ss_error(&format!("invalid value '{v}' in settings.cfg.")));
+            js_map.insert(kkc, jkc.clone());
+        }
+    }
     js_map
 }
 
 impl System {
-    pub fn get_input(&self, kc: AbpKeycode) -> u32 {
-        match kc {
-            AbpKeycode::Left => self.get_input_inner(Keycode::Left),
-            AbpKeycode::Right => self.get_input_inner(Keycode::Right),
-            AbpKeycode::Up => self.get_input_inner(Keycode::Up),
-            AbpKeycode::Down => self.get_input_inner(Keycode::Down),
-            AbpKeycode::Z => self.get_input_inner(Keycode::KeyZ),
-            AbpKeycode::X => self.get_input_inner(Keycode::KeyX),
-            AbpKeycode::Shift => self.get_input_inner(Keycode::Shift),
-            AbpKeycode::Escape => self.get_input_inner(Keycode::Escape),
-        }
-    }
-
-    fn get_input_inner(&self, kc: Keycode) -> u32 {
+    // TODO: add axis
+    pub fn get_input(&self, kc: Keycode) -> u32 {
         let kb = self.window_app.get_input(kc.clone());
-        let js = self.window_app.get_input(self.js_map[&kc].clone());
+        let js = self
+            .js_map
+            .get(&kc)
+            .map(|n| self.window_app.get_input(n.clone()))
+            .unwrap_or(0);
         std::cmp::max(kb, js)
     }
 }

@@ -1,46 +1,54 @@
-use super::graphics::Position;
 use super::*;
 
-use crate::resource::TextureID;
-use crate::scene::game::GameScene;
-use crate::scene::Scene;
-
 use sstar::log::*;
+
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
 impl System {
-    /// A constructor for this game.
-    /// WARNING: It must be called only once at runtime.
-    pub fn new() -> Self {
+    /// A constructor.
+    /// - `title` - the window title.
+    /// - `base_width` - the basic scene width.
+    /// - `base_height` - the basic scene height.
+    /// - `max_tex_cnt` - the max number of bitmap textures.
+    pub fn new(title: &str, base_width: f32, base_height: f32, max_tex_cnt: u32) -> Self {
         // read settings.cfg into a hashmap
-        let file = File::open("settings.cfg")
-            .unwrap_or_else(|e| ss_error(&format!("failed to open settings.cfg : {e}")));
         let mut settings = HashMap::new();
-        for l in BufReader::new(file).lines() {
-            let l = l.unwrap();
-            let (k, v) = l
-                .split_once('=')
-                .unwrap_or_else(|| ss_error(&format!("invalid line '{l}' found in settings.cfg.")));
-            settings.insert(k.to_string(), v.to_string());
+        match File::open("settings.cfg") {
+            Ok(file) => {
+                for l in BufReader::new(file).lines() {
+                    let l = l.unwrap();
+                    let (k, v) = l.split_once('=').unwrap_or_else(|| {
+                        ss_error(&format!("invalid line '{l}' found in settings.cfg."))
+                    });
+                    settings.insert(k.to_string(), v.to_string());
+                }
+            }
+            _ => ss_info("settings.cfg not found. default settings will be used."),
         }
 
         // configure
-        let (scene_scale, sw, sh) = graphics::configure(&settings);
-        let js_map = input::configure(&settings);
+        let scene_scale = graphics::configure(&mut settings);
+        let js_map = input::configure(&mut settings);
+        if !settings.is_empty() {
+            for (k, _) in settings {
+                ss_warning(&format!("invalid key '{k}' found in settings.cfg."));
+            }
+        }
 
-        // create sstar instances
-        let window_app = WindowApp::new("射命丸文の弾幕稽古", sw, sh);
-        let vulkan_app = VulkanApp::new(&window_app, 10);
-        let glyph_rasterizer =
-            GlyphRasterizer::new("./res/mplus-2p-medium.ttf").unwrap_or_else(|e| ss_error(&e));
+        // create instances
+        let sw = (base_width * scene_scale) as u32;
+        let sh = (base_height * scene_scale) as u32;
+        let window_app = WindowApp::new(title, sw, sh);
+        let vulkan_app = VulkanApp::new(&window_app, max_tex_cnt);
 
         // finish
         Self {
             scene_scale,
+            base_width,
+            base_height,
             window_app,
             vulkan_app,
-            glyph_rasterizer,
             text_infos: HashMap::new(),
             js_map,
             ub: None,
@@ -48,52 +56,9 @@ impl System {
         }
     }
 
-    /// A method to run this game.
-    /// It block thread until the game ends.
-    pub fn run(mut self) {
-        // load resources
-        self.load_resources_first_frame();
-        self.set_image_texture(TextureID::Load);
-        self.draw(
-            PushConstant {
-                scl: [2024.0, 1024.0, 1.0, 0.0],
-                ..Default::default()
-            },
-            Position::UpperLeftUI,
-        );
-        self.render();
-        self.load_resources();
-        self.vulkan_app
-            .unload_image_texture(TextureID::Load as usize)
-            .unwrap();
-
-        // mainloop
-        // TODO: start with title scene.
-        let mut scene: Box<dyn Scene> = Box::new(GameScene::new());
-        while self.window_app.do_events() {
-            let (next, end) = scene.update(&mut self);
-            if let Some(next) = next {
-                scene = next;
-            }
-            if end {
-                break;
-            }
-            self.set_image_texture(TextureID::SystemCharactors);
-            // TODO: get fps.
-            self.draw_text_directly("00.0fps", 1270.0, 960.0, Position::LowerRightUI);
-            self.render();
-        }
-
-        // finish
+    pub fn run<F: FnMut(&mut System) -> bool>(mut self, mut f: F) {
+        while self.window_app.do_events() && f(&mut self) {}
         self.vulkan_app.terminate();
         self.window_app.terminate();
-    }
-
-    fn render(&mut self) {
-        self.vulkan_app
-            .render(self.ub.as_ref(), &self.tasks)
-            .unwrap();
-        self.ub = None;
-        self.tasks.clear();
     }
 }

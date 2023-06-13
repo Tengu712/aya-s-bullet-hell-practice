@@ -1,35 +1,35 @@
 use super::*;
 
-use crate::resource::*;
-
-use sstar::{bitmap::image::*, log::*};
+use sstar::{
+    bitmap::{font::*, image::*},
+    log::*,
+};
 
 impl System {
-    pub(super) fn load_resources_first_frame(&mut self) {
-        self.img(TextureID::Load, "./res/load.png");
-    }
+    /// A method to load image texture as `id`.
+    pub fn load_image(&mut self, id: usize, path: &str) {
+        if self.vulkan_app.check_image_texture_loaded(id) {
+            ss_warning(&format!("the texture {id} has already been loaded."));
+            return;
+        }
 
-    pub(super) fn load_resources(&mut self) {
-        // images
-        self.img(TextureID::Game, "./res/game.png");
-
-        // texts
-        self.txt(TextureID::SystemCharactors, 32.0, SYSTEM_CHARACTORS);
-        self.txt(TextureID::SelectText, 32.0, SELECT_TEXT);
-    }
-
-    fn img(&mut self, id: TextureID, path: &str) {
         let bitmap = create_bitmap_from_file(path).unwrap_or_else(|e| ss_error(&e));
         self.vulkan_app
             .load_image_texture(id as usize, bitmap.width, bitmap.height, &bitmap.data)
             .unwrap_or_else(|e| ss_error(&e));
     }
 
-    fn txt(&mut self, id: TextureID, size: f32, txts: &[&str]) {
+    /// A method to load texts texture as `id`.
+    pub fn load_texts(&mut self, gr: &GlyphRasterizer, id: usize, size: f32, txts: &[&str]) {
+        if self.vulkan_app.check_image_texture_loaded(id) {
+            ss_warning(&format!("the texture {id} has already been loaded."));
+            return;
+        }
+
         // rasterize glyphs
         let bitmap_infos = txts
             .iter()
-            .map(|t| (t.to_string(), self.glyph_rasterizer.rasterize(t, size)))
+            .map(|t| (t.to_string(), gr.rasterize(t, size)))
             .collect::<Vec<_>>();
 
         // create a empty bitmap
@@ -39,9 +39,11 @@ impl System {
         let height = 2_usize.pow((height as f64).log2().ceil() as u32);
         let mut bitmap = vec![0; width * height * 4];
 
-        // map
+        // map text bitmaps into the empty bitmap
         let mut oy = 0;
+        let mut map = HashMap::new();
         for (key, info) in bitmap_infos {
+            // map
             for j in 0..(info.height as usize) {
                 for i in 0..(info.width as usize) {
                     let idx = (j + oy) * width + i;
@@ -51,10 +53,11 @@ impl System {
                     bitmap[idx * 4 + 3] = info.data[j * info.width as usize + i];
                 }
             }
+            // register
             let width = width as f32;
             let height = height as f32;
             let new_oy = oy + info.height as usize;
-            self.text_infos.insert(
+            map.insert(
                 key,
                 TextInfo {
                     width: info.width as f32,
@@ -70,9 +73,17 @@ impl System {
             oy = new_oy;
         }
 
+        // register the map of text information
+        self.text_infos.insert(id, map);
+
         // load
         self.vulkan_app
             .load_image_texture(id as usize, width as u32, height as u32, &bitmap)
             .unwrap_or_else(|e| ss_error(&e));
+    }
+
+    pub fn unload_texture(&mut self, id: usize) {
+        self.text_infos.remove(&id);
+        self.vulkan_app.unload_image_texture(id).unwrap();
     }
 }

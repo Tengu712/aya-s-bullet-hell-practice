@@ -1,9 +1,9 @@
 use super::*;
 
 use crate::resource::*;
-use crate::system::{graphics::*, input::*};
+use crate::system::graphics::*;
 
-use sstar::vulkan::PushConstant;
+use sstar::{vulkan::PushConstant, window::Keycode};
 
 pub struct GameScene;
 
@@ -16,27 +16,43 @@ impl GameScene {
 impl Scene for GameScene {
     fn update(&mut self, system: &mut System) -> (Option<Box<dyn Scene>>, bool) {
         // move
-        let left = system.get_input(AbpKeycode::Left);
+        let left = system.get_input(Keycode::Left);
         if left > 0 {
             sstar::log::ss_debug(&format!("left: {left}"));
         }
 
-        // set image texture for game
-        system.set_image_texture(TextureID::Game);
+        // bind a bitmap texture for game
+        system.bind_texture(TextureID::Game as usize);
 
         // frame
-        let pc_frame = PushConstant {
-            scl: [2048.0, 2048.0, 1.0, 0.0],
-            ..Default::default()
-        };
-        system.draw(pc_frame, Position::UpperLeftUI);
+        system.draw(
+            PushConstant {
+                scl: [2048.0, 2048.0, 1.0, 0.0],
+                ..Default::default()
+            },
+            Position::UpperLeftUI,
+        );
 
         // DEBUG:
-        system.set_image_texture(TextureID::SelectText);
-        system.draw_text("Assemble", 640.0, 480.0, Position::CenterUI);
-        system.draw_text("Settings", 0.0, 0.0, Position::UpperLeftUI);
+        let id = TextureID::SelectText as usize;
+        system.bind_texture(id);
+        system.draw_text(
+            PushConstant {
+                trs: [640.0, 480.0, 0.0, 0.0],
+                ..Default::default()
+            },
+            Position::CenterUI,
+            id,
+            "Assemble",
+        );
+        system.draw_text(
+            PushConstant::default(),
+            Position::UpperLeftUI,
+            id,
+            "Settings",
+        );
 
         // finish
-        (None, false)
+        (None, true)
     }
 }
