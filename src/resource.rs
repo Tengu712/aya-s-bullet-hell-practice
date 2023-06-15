@@ -1,4 +1,4 @@
-use crate::system::System;
+use sstar::app::SStarApp;
 
 pub enum TextureID {
     // image
@@ -15,32 +15,33 @@ pub const SYSTEM_CHARS: &'static [&'static str] = &[
 
 pub const SELECT_TEXT: &'static [&'static str] = &["Assemble", "Settings"];
 
-pub fn load_resources(system: &mut System) {
-    use crate::system::graphics::Position;
-    use sstar::{bitmap::font::GlyphRasterizer, log::*, vulkan::PushConstant};
+pub fn load_resources(app: &mut SStarApp) {
+    use sstar::{
+        app::graphics::Position, bitmap::font::GlyphRasterizer, log::*, vulkan::PushConstant,
+    };
 
     // load a background for loading scene
-    system.load_image(TextureID::Load as usize, "./res/load.png");
+    app.load_image(TextureID::Load as usize, "./res/load.png");
     // draw the background
-    system.bind_texture(TextureID::Load as usize);
-    system.draw(
+    app.bind_texture(TextureID::Load as usize);
+    app.draw(
         PushConstant {
             scl: [2048.0, 1024.0, 1.0, 1.0],
             ..Default::default()
         },
         Position::UpperLeftUI,
     );
-    system.render();
+    app.flush();
 
     // load resources
 
     // images
-    system.load_image(TextureID::Game as usize, "./res/game.png");
+    app.load_image(TextureID::Game as usize, "./res/game.png");
     // texts
     let gr = GlyphRasterizer::new("./res/mplus-2p-medium.ttf").unwrap_or_else(|e| ss_error(&e));
-    system.load_texts(&gr, TextureID::SystemChars as usize, 32.0, SYSTEM_CHARS);
-    system.load_texts(&gr, TextureID::SelectText as usize, 32.0, SELECT_TEXT);
+    app.load_texts(&gr, TextureID::SystemChars as usize, 32.0, SYSTEM_CHARS);
+    app.load_texts(&gr, TextureID::SelectText as usize, 32.0, SELECT_TEXT);
 
     // finish
-    system.unload_texture(TextureID::Load as usize);
+    app.unload_texture(TextureID::Load as usize);
 }

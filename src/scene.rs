@@ -1,8 +1,8 @@
 pub mod game;
 pub mod title;
 
-use crate::system::System;
+use sstar::app::SStarApp;
 
 pub trait Scene {
-    fn update(&mut self, system: &mut System) -> (Option<Box<dyn Scene>>, bool);
+    fn update(&mut self, app: &mut SStarApp) -> (Option<Box<dyn Scene>>, bool);
 }

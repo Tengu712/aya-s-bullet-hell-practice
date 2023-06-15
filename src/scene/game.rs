@@ -1,9 +1,8 @@
 use super::*;
 
 use crate::resource::*;
-use crate::system::graphics::*;
 
-use sstar::{vulkan::PushConstant, window::Keycode};
+use sstar::{app::graphics::Position, vulkan::PushConstant, window::Keycode};
 
 pub struct GameScene;
 
@@ -14,18 +13,18 @@ impl GameScene {
 }
 
 impl Scene for GameScene {
-    fn update(&mut self, system: &mut System) -> (Option<Box<dyn Scene>>, bool) {
+    fn update(&mut self, app: &mut SStarApp) -> (Option<Box<dyn Scene>>, bool) {
         // move
-        let left = system.get_input(Keycode::Left);
+        let left = app.get_input(Keycode::Left);
         if left > 0 {
             sstar::log::ss_debug(&format!("left: {left}"));
         }
 
         // bind a bitmap texture for game
-        system.bind_texture(TextureID::Game as usize);
+        app.bind_texture(TextureID::Game as usize);
 
         // frame
-        system.draw(
+        app.draw(
             PushConstant {
                 scl: [2048.0, 2048.0, 1.0, 0.0],
                 ..Default::default()
@@ -35,8 +34,8 @@ impl Scene for GameScene {
 
         // DEBUG:
         let id = TextureID::SelectText as usize;
-        system.bind_texture(id);
-        system.draw_text(
+        app.bind_texture(id);
+        app.draw_text(
             PushConstant {
                 trs: [640.0, 480.0, 0.0, 0.0],
                 ..Default::default()
@@ -45,7 +44,7 @@ impl Scene for GameScene {
             id,
             "Assemble",
         );
-        system.draw_text(
+        app.draw_text(
             PushConstant::default(),
             Position::UpperLeftUI,
             id,
@@ -53,6 +52,6 @@ impl Scene for GameScene {
         );
 
         // finish
-        (None, true)
+        (None, false)
     }
 }

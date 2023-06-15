@@ -1,30 +1,34 @@
 mod resource;
 mod scene;
-mod system;
 
 use resource::*;
 use scene::{title::TitleScene, Scene};
 
-use sstar::vulkan::PushConstant;
-use system::{graphics::Position, System};
+use sstar::{
+    app::{graphics::Position, SStarApp},
+    vulkan::PushConstant,
+};
 
 fn main() {
-    let mut system = System::new("射命丸文の弾幕稽古", 1280.0, 960.0, 10);
+    let mut app = SStarApp::new("射命丸文の弾幕稽古", 1280.0, 960.0, 10);
 
-    load_resources(&mut system);
+    load_resources(&mut app);
 
     let mut scene: Box<dyn Scene> = Box::new(TitleScene::new());
 
-    system.run(move |system| {
+    while app.update() {
         // update scene
-        let (next, end) = scene.update(system);
+        let (next, end) = scene.update(&mut app);
         if let Some(next) = next {
             scene = next;
         }
+        if end {
+            break;
+        }
 
         // draw fps
-        system.bind_texture(TextureID::SystemChars as usize);
-        system.draw_chars(
+        app.bind_texture(TextureID::SystemChars as usize);
+        app.draw_chars(
             PushConstant {
                 trs: [1280.0, 960.0, 0.0, 0.0],
                 ..Default::default()
@@ -35,7 +39,8 @@ fn main() {
         );
 
         // render and go to next frame
-        system.render();
-        end
-    });
+        app.flush();
+    }
+
+    app.terminate();
 }
