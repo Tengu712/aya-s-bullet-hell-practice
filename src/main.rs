@@ -8,6 +8,7 @@ use sstar::{
     app::{graphics::Position, SStarApp},
     vulkan::PushConstant,
 };
+use std::time;
 
 fn main() {
     let mut app = SStarApp::new("射命丸文の弾幕稽古", 1280.0, 960.0, 10);
@@ -15,15 +16,29 @@ fn main() {
     load_resources(&mut app);
 
     let mut scene: Box<dyn Scene> = Box::new(TitleScene::new());
+    let mut cnt = 0;
+    let mut now = time::Instant::now();
+    let mut fps = String::from("0.00fps");
 
     while app.update() {
-        // update scene
-        let (next, end) = scene.update(&mut app);
-        if let Some(next) = next {
-            scene = next;
+        // calculate fps
+        cnt += 1;
+        let duration = now.elapsed();
+        if duration.as_secs() >= 1 {
+            let fps_f64 = (cnt * 1000000) as f64 / duration.as_micros() as f64;
+            cnt = 0;
+            now = time::Instant::now();
+            fps = format!("{:03.1}fps", fps_f64);
         }
-        if end {
-            break;
+
+        // update scene
+        match scene.update(&mut app) {
+            // end the game
+            (_, true) => break,
+            // go to next scene
+            (Some(n), _) => scene = n,
+            // nothing happens
+            _ => (),
         }
 
         // draw fps
@@ -35,7 +50,7 @@ fn main() {
             },
             Position::LowerRightUI,
             TextureID::SystemChars as usize,
-            "00.0fps",
+            &fps,
         );
 
         // render and go to next frame
