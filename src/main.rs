@@ -10,10 +10,15 @@ use sstar::{
 };
 use std::time;
 
+pub struct GameInfo {
+    pub is_running: bool,
+}
+
 fn main() {
     let mut app = SStarApp::new("射命丸文の弾幕稽古", 1280.0, 960.0, 10);
-
     load_resources(&mut app);
+
+    let mut ginf = GameInfo { is_running: true };
 
     let mut scene: Box<dyn Scene> = Box::new(TitleScene::new());
     let mut cnt = 0;
@@ -32,13 +37,11 @@ fn main() {
         }
 
         // update scene
-        match scene.update(&mut app) {
-            // end the game
-            (_, true) => break,
-            // go to next scene
-            (Some(n), _) => scene = n,
-            // nothing happens
-            _ => (),
+        if let Some(n) = scene.update(&mut app, &mut ginf) {
+            scene = n;
+        }
+        if !ginf.is_running {
+            break;
         }
 
         // draw fps

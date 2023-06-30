@@ -13,7 +13,7 @@ impl GameScene {
 }
 
 impl Scene for GameScene {
-    fn update(&mut self, app: &mut SStarApp) -> (Option<Box<dyn Scene>>, bool) {
+    fn update(&mut self, app: &mut SStarApp, _: &mut GameInfo) -> Option<Box<dyn Scene>> {
         // move
         let left = app.get_input(Keycode::Left);
         if left > 0 {
@@ -52,6 +52,6 @@ impl Scene for GameScene {
         );
 
         // finish
-        (None, false)
+        None
     }
 }

@@ -1,8 +1,14 @@
-use sstar::app::SStarApp;
+use sstar::{
+    app::{graphics::Position, SStarApp},
+    bitmap::font::GlyphRasterizer,
+    log::*,
+    vulkan::PushConstant,
+};
 
 pub enum TextureID {
     // image
-    Load = 1,
+    Default = 0,
+    Load,
     Game,
     // text
     SystemChars,
@@ -16,10 +22,6 @@ pub const SYSTEM_CHARS: &'static [&'static str] = &[
 pub const SELECT_TEXT: &'static [&'static str] = &["Assemble", "Settings"];
 
 pub fn load_resources(app: &mut SStarApp) {
-    use sstar::{
-        app::graphics::Position, bitmap::font::GlyphRasterizer, log::*, vulkan::PushConstant,
-    };
-
     // load a background for loading scene
     app.load_image(TextureID::Load as usize, "./res/load.png");
     // draw the background
@@ -32,8 +34,6 @@ pub fn load_resources(app: &mut SStarApp) {
         Position::UpperLeftUI,
     );
     app.flush();
-
-    // load resources
 
     // images
     app.load_image(TextureID::Game as usize, "./res/game.png");

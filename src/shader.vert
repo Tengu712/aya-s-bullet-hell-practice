@@ -20,6 +20,7 @@ layout(location=1) in vec2 in_uv;
 
 layout(location=0) out vec2 out_uv;
 layout(location=1) out vec4 out_col;
+layout(location=2) flat out ivec4 out_param;
 
 void main() {
     vec4 pos = vec4(in_pos, 1.0);
@@ -76,4 +77,5 @@ void main() {
         constant.uv.y + (constant.uv.w - constant.uv.y) * in_uv.y
     );
     out_col = constant.col;
+    out_param = constant.param;
 }
