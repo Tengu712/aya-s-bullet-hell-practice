@@ -1,3 +1,4 @@
+use super::bullet::Bullet;
 use super::*;
 
 use crate::GameInfo;
@@ -8,17 +9,21 @@ use sstar::{
 };
 
 #[derive(Clone)]
-pub struct Bullet {
+pub struct Enemy {
     pub cnt: f32,
+    pub hp: isize,
     pub x: f32,
     pub y: f32,
     pub spd: f32,
     pub deg: f32,
+    /// to change spd and deg
+    pub update_fun: fn(&mut Enemy, &SStarApp, &GameInfo, &mut Vec<Bullet>),
 }
 
-impl Bullet {
+impl Enemy {
     /// If it should be removed, it returns `false`.
-    pub fn update(&mut self, ginf: &GameInfo, _: &mut Vec<Bullet>) -> bool {
+    pub fn update(&mut self, app: &SStarApp, ginf: &GameInfo, buls: &mut Vec<Bullet>) -> bool {
+        (self.update_fun)(self, app, ginf, buls);
         let rad = self.deg.to_radians();
         let dx = rad.cos();
         let dy = rad.sin();
@@ -35,7 +40,7 @@ impl Bullet {
     pub fn draw(&self, app: &mut SStarApp, _: &GameInfo) {
         app.draw(
             PushConstant {
-                scl: [40.0, 60.0, 1.0, 0.0],
+                scl: [64.0, 64.0, 1.0, 0.0],
                 trs: [self.x, self.y, 0.0, 0.0],
                 ..Default::default()
             },

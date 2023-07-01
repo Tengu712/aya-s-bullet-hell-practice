@@ -13,6 +13,7 @@ use std::time;
 
 pub struct GameInfo {
     pub is_running: bool,
+    pub should_show_info: bool,
     /// Game clock coef
     pub clock_coef: f32,
     /// Normal player speed
@@ -28,6 +29,7 @@ fn main() {
 
     let mut ginf = GameInfo {
         is_running: true,
+        should_show_info: true, // TODO:
         clock_coef: 1.0,
         spd_n: 8.0,
         spd_s: 4.0,

@@ -1,4 +1,4 @@
-use super::bullet::Bullet;
+use super::bullet::*;
 
 use crate::GameInfo;
 
@@ -55,7 +55,8 @@ impl Player {
         };
         self.x += lr * k * s * ginf.clock_coef;
         self.y += ud * k * s * ginf.clock_coef;
-        // TODO: clamp
+        self.x = self.x.max(-370.0).min(370.0);
+        self.y = self.y.max(-460.0).min(460.0);
 
         // shoot
         if self.shoot_cnt != 0.0 {
@@ -66,7 +67,13 @@ impl Player {
             }
         }
         if app.get_input(Keycode::KeyZ) > 0 && self.shoot_cnt == 0.0 {
-            buls.push(Bullet { x: self.x, y: self.y, spd: 40.0, deg: 270.0 });
+            buls.push(Bullet {
+                cnt: 0.0,
+                x: self.x,
+                y: self.y,
+                spd: 40.0,
+                deg: 270.0,
+            });
             self.shoot_cnt += ginf.clock_coef;
         }
     }
