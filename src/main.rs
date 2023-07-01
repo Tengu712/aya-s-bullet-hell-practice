@@ -1,3 +1,4 @@
+mod obj;
 mod resource;
 mod scene;
 
@@ -12,13 +13,26 @@ use std::time;
 
 pub struct GameInfo {
     pub is_running: bool,
+    /// Game clock coef
+    pub clock_coef: f32,
+    /// Normal player speed
+    pub spd_n: f32,
+    /// Slower player speed
+    pub spd_s: f32,
+    pub shoot_interval: f32,
 }
 
 fn main() {
     let mut app = SStarApp::new("射命丸文の弾幕稽古", 1280.0, 960.0, 10);
     load_resources(&mut app);
 
-    let mut ginf = GameInfo { is_running: true };
+    let mut ginf = GameInfo {
+        is_running: true,
+        clock_coef: 1.0,
+        spd_n: 8.0,
+        spd_s: 4.0,
+        shoot_interval: 6.0,
+    };
 
     let mut scene: Box<dyn Scene> = Box::new(TitleScene::new());
     let mut cnt = 0;
