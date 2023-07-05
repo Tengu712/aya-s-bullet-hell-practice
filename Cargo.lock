@@ -207,9 +207,9 @@ checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
 name = "sstar"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3f103a6d48f51559e5ce77019ea3dc11c7c17da6cacd4e94c2e07a712f6566d"
+checksum = "03afa02ee156d25ddc17d7b1cc671ce7d435a0fae34852ec828992bdc36d607f"
 dependencies = [
  "bindgen",
  "cc",

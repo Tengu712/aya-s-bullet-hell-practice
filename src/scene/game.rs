@@ -70,7 +70,7 @@ impl Scene for GameScene {
                 scl: [2048.0, 2048.0, 1.0, 0.0],
                 ..Default::default()
             },
-            Position::UpperLeftUI,
+            Position::TopLeftUI,
         );
 
         // info
@@ -81,7 +81,7 @@ impl Scene for GameScene {
                     trs: [10.0, 10.0, 0.0, 0.0],
                     ..Default::default()
                 },
-                Position::UpperLeftUI,
+                Position::TopLeftUI,
                 TextureID::SystemChars as usize,
                 &format!("clock coef: {:01.2}", ginf.clock_coef),
             );
@@ -90,7 +90,7 @@ impl Scene for GameScene {
                     trs: [10.0, 40.0, 0.0, 0.0],
                     ..Default::default()
                 },
-                Position::UpperLeftUI,
+                Position::TopLeftUI,
                 TextureID::SystemChars as usize,
                 &format!("ebuls cnt: {}", self.ebuls.len()),
             );

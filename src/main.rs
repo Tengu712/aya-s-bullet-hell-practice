@@ -27,9 +27,13 @@ fn main() {
     let mut app = SStarApp::new("射命丸文の弾幕稽古", 1280.0, 960.0, 10);
     load_resources(&mut app);
 
+    let should_show_info = app
+        .get_setting("info")
+        .map(|n| n == "true")
+        .unwrap_or(false);
     let mut ginf = GameInfo {
         is_running: true,
-        should_show_info: true, // TODO:
+        should_show_info,
         clock_coef: 1.0,
         spd_n: 8.0,
         spd_s: 4.0,
@@ -67,7 +71,7 @@ fn main() {
                 trs: [1280.0, 960.0, 0.0, 0.0],
                 ..Default::default()
             },
-            Position::LowerRightUI,
+            Position::BottomRightUI,
             TextureID::SystemChars as usize,
             &fps,
         );

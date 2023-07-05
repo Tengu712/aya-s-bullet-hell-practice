@@ -9,6 +9,7 @@ pub enum TextureID {
     // image
     Default = 0,
     Load,
+    Title,
     Game,
     // text
     SystemChars,
@@ -33,11 +34,12 @@ pub fn load_resources(app: &mut SStarApp) {
             scl: [2048.0, 1024.0, 1.0, 1.0],
             ..Default::default()
         },
-        Position::UpperLeftUI,
+        Position::TopLeftUI,
     );
     app.flush();
 
     // images
+    app.load_image(TextureID::Title as usize, "./res/title.png");
     app.load_image(TextureID::Game as usize, "./res/game.png");
     // texts
     let gr = GlyphRasterizer::new("./res/mplus-2p-medium.ttf").unwrap_or_else(|e| ss_error(&e));
