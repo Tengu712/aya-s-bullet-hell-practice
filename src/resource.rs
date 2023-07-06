@@ -5,6 +5,8 @@ use sstar::{
     vulkan::PushConstant,
 };
 
+pub const TEXTURE_CNT: u32 = 6;
+
 pub enum TextureID {
     // image
     Default = 0,

@@ -1,4 +1,5 @@
 use super::bullet::*;
+use super::*;
 
 use crate::GameInfo;
 
@@ -9,8 +10,8 @@ use sstar::{
 };
 
 pub struct Player {
-    x: f32,
-    y: f32,
+    pub x: f32,
+    pub y: f32,
     shoot_cnt: f32,
 }
 
@@ -67,12 +68,17 @@ impl Player {
             }
         }
         if app.get_input(Keycode::KeyZ) > 0 && self.shoot_cnt == 0.0 {
+            // TODO:
             buls.push(Bullet {
+                btype: btype::CIRCLE,
                 cnt: 0.0,
                 x: self.x,
                 y: self.y,
                 spd: 40.0,
                 deg: 270.0,
+                dmg: 0.0,
+                grazed: false,
+                update_fun: |_, _, _| {},
             });
             self.shoot_cnt += ginf.clock_coef;
         }
@@ -83,6 +89,18 @@ impl Player {
             PushConstant {
                 scl: [40.0, 60.0, 1.0, 0.0],
                 trs: [self.x, self.y, 0.0, 0.0],
+                ..Default::default()
+            },
+            Position::Center,
+        );
+    }
+
+    pub fn draw_collision(&self, app: &mut SStarApp, ginf: &GameInfo) {
+        app.draw(
+            PushConstant {
+                scl: [2.0 * ginf.r, 2.0 * ginf.r, 1.0, 0.0],
+                trs: [self.x, self.y, 0.0, 0.0],
+                uv: UV_COLLISION,
                 ..Default::default()
             },
             Position::Center,

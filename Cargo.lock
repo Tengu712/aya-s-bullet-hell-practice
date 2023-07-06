@@ -3,7 +3,7 @@
 version = 3
 
 [[package]]
-name = "aya-s-bullet-hell-practice"
+name = "abp"
 version = "0.1.0"
 dependencies = [
  "sstar",
@@ -207,9 +207,9 @@ checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
 name = "sstar"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03afa02ee156d25ddc17d7b1cc671ce7d435a0fae34852ec828992bdc36d607f"
+checksum = "1741e72f4594cc2f4904b44d718701cea1ccbde0ba3d87f1fef66b873b37ea8b"
 dependencies = [
  "bindgen",
  "cc",

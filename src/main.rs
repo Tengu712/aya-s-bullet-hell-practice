@@ -21,10 +21,11 @@ pub struct GameInfo {
     /// Slower player speed
     pub spd_s: f32,
     pub shoot_interval: f32,
+    pub r: f32,
 }
 
 fn main() {
-    let mut app = SStarApp::new("射命丸文の弾幕稽古", 1280.0, 960.0, 10);
+    let mut app = SStarApp::new("射命丸文の弾幕稽古", 1280.0, 960.0, TEXTURE_CNT);
     load_resources(&mut app);
 
     let should_show_info = app
@@ -38,6 +39,7 @@ fn main() {
         spd_n: 8.0,
         spd_s: 4.0,
         shoot_interval: 6.0,
+        r: 5.0,
     };
 
     let mut scene: Box<dyn Scene> = Box::new(TitleScene::new());

@@ -17,13 +17,13 @@ pub struct Enemy {
     pub spd: f32,
     pub deg: f32,
     /// to change spd and deg
-    pub update_fun: fn(&mut Enemy, &SStarApp, &GameInfo, &mut Vec<Bullet>),
+    pub update_fun: fn(&mut Enemy, &GameInfo, &mut Vec<Bullet>),
 }
 
 impl Enemy {
     /// If it should be removed, it returns `false`.
-    pub fn update(&mut self, app: &SStarApp, ginf: &GameInfo, buls: &mut Vec<Bullet>) -> bool {
-        (self.update_fun)(self, app, ginf, buls);
+    pub fn update(&mut self, ginf: &GameInfo, buls: &mut Vec<Bullet>) -> bool {
+        (self.update_fun)(self, ginf, buls);
         let rad = self.deg.to_radians();
         let dx = rad.cos();
         let dy = rad.sin();
