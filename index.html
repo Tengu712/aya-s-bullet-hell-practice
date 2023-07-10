@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8">
+    <title>射命丸文の弾幕稽古</title>
+    <style>
+        body {
+            margin: 0;
+        }
+        div#wrapper {
+            position: relative;
+            width: 1280px;
+            height: 960px;
+            margin: 0 auto;
+        }
+        canvas#main-canvas {
+            width: 1280px;
+            height: 960px;
+        }
+        label#fps-label {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            font-size: 24px;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="wrapper">
+        <canvas id="main-canvas"></canvas>
+        <label id="fps-label">00.0fps</label>
+    </div>
+    <script src="./js/index.js"></script>
+</body>
+
+</html>
