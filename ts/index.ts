@@ -1,10 +1,12 @@
-import { WebGL2App } from "./webgl2";
+import { WebGL2App } from './webgl2';
+import { loadResources } from './resource';
 
-function main() {
-    const webgl2_app = new WebGL2App();
-    const fps_label = document.getElementById("fps-label") as HTMLLabelElement;
+async function main() {
+    const wapp = new WebGL2App();
+    const fps_label = document.getElementById('fps-label') as HTMLLabelElement;
 
-    // TODO: add event listener to reset texts when resizing.
+    // load scene
+    await loadResources(wapp);
 
     let cnt = 0;
     let start = 0;
@@ -23,7 +25,12 @@ function main() {
     function loop(time_stamp: number) {
         // wait until fps is stable
         if (wait_cnt > 0) {
-            wait_cnt -= 0;
+            wait_cnt -= 1;
+            if (wait_cnt === 0) {
+                const prev_frame_time = time_stamp - prev;
+                start += prev_frame_time;
+                prev = time_stamp;
+            }
             requestAnimationFrame(loop);
             return;
         }
@@ -35,15 +42,17 @@ function main() {
             const fps = (cnt * 1000.0) / duration;
             cnt = 0;
             start = time_stamp;
-            fps_label.innerText = fps.toFixed(1) + "fps";
+            fps_label.innerText = fps.toFixed(1) + 'fps';
         }
 
         // calculate previous frame time
         const prev_frame_time = time_stamp - prev;
         prev = time_stamp;
 
+        wapp.clear();
         // TODO: update game.
-        webgl2_app.draw();
+        wapp.draw(); // DEBUG
+        wapp.flush();
 
         // go to next loop
         requestAnimationFrame(loop);
