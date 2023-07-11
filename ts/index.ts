@@ -7,31 +7,49 @@ function main() {
     // TODO: add event listener to reset texts when resizing.
 
     let cnt = 0;
-    let prev = performance.now();
+    let start = 0;
+    let prev = 0;
+    let wait_cnt = 0;
+    
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            // TODO: resume audio.
+        } else {
+            // TODO: pause audio.
+            wait_cnt = 10;
+        }
+    });
 
-    function loop() {
-        const start = performance.now();
+    function loop(time_stamp: number) {
+        // wait until fps is stable
+        if (wait_cnt > 0) {
+            wait_cnt -= 0;
+            requestAnimationFrame(loop);
+            return;
+        }
 
         // calculate fps
         cnt += 1;
-        const duration = start - prev;
+        const duration = time_stamp - start;
         if (duration > 1000.0) {
             const fps = (cnt * 1000.0) / duration;
             cnt = 0;
-            prev = start;
+            start = time_stamp;
             fps_label.innerText = fps.toFixed(1) + "fps";
         }
+
+        // calculate previous frame time
+        const prev_frame_time = time_stamp - prev;
+        prev = time_stamp;
 
         // TODO: update game.
         webgl2_app.draw();
 
         // go to next loop
-        const end = performance.now();
-        const ms = Math.max(16.6666666666666 - (end - start), 0.0);
-        setTimeout(loop, ms);
+        requestAnimationFrame(loop);
     }
 
-    loop();
+    requestAnimationFrame(loop);
 }
 
 main();
