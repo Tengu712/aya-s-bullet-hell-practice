@@ -1,76 +1,8 @@
-export type DrawQuery = {
-    uv_key: string,
-    scl: [number, number],
-    rot: [number, number, number],
-    trs: [number, number, number],
-};
+import { DrawQuery } from "./webgl2/dquery";
+import * as Shader from "./webgl2/shader";
 
-const CANVAS_WIDTH = 1280;
-const CANVAS_HEIGHT = 960;
-
-const VERT_SHADER_TEXT = `#version 300 es
-layout (location = 0) in vec4 in_pos;
-layout (location = 1) in vec2 in_uv;
-uniform vec4 uni_uv;
-uniform vec4 uni_scl;
-uniform vec4 uni_rot;
-uniform vec4 uni_pos;
-uniform mat4 uni_view;
-uniform mat4 uni_proj;
-out vec2 bridge_uv;
-void main() {
-    vec4 pos = in_pos;
-    pos = pos * uni_scl;
-    float sr = sin(uni_rot.x);
-    float sp = sin(uni_rot.y);
-    float sy = sin(uni_rot.z);
-    float cr = cos(uni_rot.x);
-    float cp = cos(uni_rot.y);
-    float cy = cos(uni_rot.z);
-    pos = mat4(
-        // col 1
-        cp * cy,
-        -cp * sy,
-        sp,
-        0.0,
-        // col 2
-        cr * sy + sr * sp * cy,
-        cr * cy - sr * sp * sy,
-        -sr * cp,
-        0.0,
-        // col 3
-        sr * sy - cr * sp * cy,
-        sr * cy + cr * sp * sy,
-        cr * cp,
-        0.0,
-        // col 4
-        0.0,
-        0.0,
-        0.0,
-        1.0
-    ) * pos;
-    pos = pos + uni_pos;
-    pos = uni_view * pos;
-    pos = uni_proj * pos;
-    gl_Position = pos;
-    bridge_uv = vec2(
-        uni_uv.x + (uni_uv.z - uni_uv.x) * in_uv.x,
-        uni_uv.y + (uni_uv.w - uni_uv.y) * in_uv.y
-    );
-}
-`;
-const LOC_IN_POS: number = 0;
-const LOC_IN_UV: number = 1;
-
-const FRAG_SHADER_TEXT = `#version 300 es
-precision highp float;
-uniform sampler2D tex_sampler;
-in vec2 bridge_uv;
-out vec4 out_col;
-void main() {
-    out_col = texture(tex_sampler, bridge_uv);
-}
-`;
+export const CANVAS_WIDTH = 1280;
+export const CANVAS_HEIGHT = 960;
 
 function createBuffer(gl: WebGL2RenderingContext, type: number, typedDataArray: Float32Array | Uint16Array) {
     const buffer = gl.createBuffer();
@@ -82,33 +14,21 @@ function createBuffer(gl: WebGL2RenderingContext, type: number, typedDataArray: 
     return buffer;
 }
 
-function createShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
-    const shader = gl.createShader(type);
-    if (shader === null)
-        throw new Error("failed to create a shader.");
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        gl.deleteShader(shader);
-        throw new Error("failed to build a shader.");
-    }
-    return shader;
-}
-
 export class WebGL2App {
-    readonly canvas: HTMLCanvasElement;
-    readonly gl: WebGL2RenderingContext;
-    readonly texs: Map<string, WebGLTexture>;
-    readonly uvs: Map<string, [number, number, number, number]>;
-    readonly loc_uni_uv: WebGLUniformLocation;
-    readonly loc_uni_scl: WebGLUniformLocation;
-    readonly loc_uni_rot: WebGLUniformLocation;
-    readonly loc_uni_pos: WebGLUniformLocation;
-    readonly loc_uni_view: WebGLUniformLocation;
-    readonly loc_uni_proj: WebGLUniformLocation;
+    private readonly canvas: HTMLCanvasElement;
+    private readonly gl: WebGL2RenderingContext;
+    private readonly texs: Map<string, WebGLTexture>;
+    private readonly uvs: Map<string, [number, number, number, number]>;
+    private readonly loc_uni_uv: WebGLUniformLocation;
+    private readonly loc_uni_col: WebGLUniformLocation;
+    private readonly loc_uni_scl: WebGLUniformLocation;
+    private readonly loc_uni_rot: WebGLUniformLocation;
+    private readonly loc_uni_pos: WebGLUniformLocation;
+    private readonly loc_uni_view: WebGLUniformLocation;
+    private readonly loc_uni_proj: WebGLUniformLocation;
 
     /// A constructor.
-    constructor() {
+    public constructor() {
         // core
         this.canvas = document.getElementById('main-canvas') as HTMLCanvasElement;
         this.canvas.width = CANVAS_WIDTH;
@@ -136,8 +56,8 @@ export class WebGL2App {
         const program = this.gl.createProgram();
         if (program === null)
             throw new Error("failed to create a program.");
-        this.gl.attachShader(program, createShader(this.gl, this.gl.VERTEX_SHADER, VERT_SHADER_TEXT));
-        this.gl.attachShader(program, createShader(this.gl, this.gl.FRAGMENT_SHADER, FRAG_SHADER_TEXT));
+        this.gl.attachShader(program, Shader.createShader(this.gl, this.gl.VERTEX_SHADER, Shader.VERT_SHADER_TEXT));
+        this.gl.attachShader(program, Shader.createShader(this.gl, this.gl.FRAGMENT_SHADER, Shader.FRAG_SHADER_TEXT));
         this.gl.linkProgram(program);
         if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
             this.gl.deleteProgram(program);
@@ -146,17 +66,18 @@ export class WebGL2App {
         this.gl.useProgram(program);
 
         // shader configure
-        this.loc_uni_uv = this.gl.getUniformLocation(program, 'uni_uv') as WebGLUniformLocation; // HACK: without type assertion.
-        this.loc_uni_scl = this.gl.getUniformLocation(program, 'uni_scl') as WebGLUniformLocation; // HACK: without type assertion.
-        this.loc_uni_rot = this.gl.getUniformLocation(program, 'uni_rot') as WebGLUniformLocation; // HACK: without type assertion.
-        this.loc_uni_pos = this.gl.getUniformLocation(program, 'uni_pos') as WebGLUniformLocation; // HACK: without type assertion.
-        this.loc_uni_view = this.gl.getUniformLocation(program, 'uni_view') as WebGLUniformLocation; // HACK: without type assertion.
-        this.loc_uni_proj = this.gl.getUniformLocation(program, 'uni_proj') as WebGLUniformLocation; // HACK: without type assertion.
-        this.gl.enableVertexAttribArray(LOC_IN_POS);
-        this.gl.enableVertexAttribArray(LOC_IN_UV);
+        this.loc_uni_uv = Shader.getUniLoc(this.gl, program, 'uni_uv');
+        this.loc_uni_col = Shader.getUniLoc(this.gl, program, 'uni_col');
+        this.loc_uni_scl = Shader.getUniLoc(this.gl, program, 'uni_scl');
+        this.loc_uni_rot = Shader.getUniLoc(this.gl, program, 'uni_rot');
+        this.loc_uni_pos = Shader.getUniLoc(this.gl, program, 'uni_pos');
+        this.loc_uni_view = Shader.getUniLoc(this.gl, program, 'uni_view');
+        this.loc_uni_proj = Shader.getUniLoc(this.gl, program, 'uni_proj');
+        this.gl.enableVertexAttribArray(Shader.LOC_IN_POS);
+        this.gl.enableVertexAttribArray(Shader.LOC_IN_UV);
         const stride = 6 * Float32Array.BYTES_PER_ELEMENT;
-        this.gl.vertexAttribPointer(LOC_IN_POS, 4, this.gl.FLOAT, false, stride, 0);
-        this.gl.vertexAttribPointer(LOC_IN_UV, 2, this.gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT);
+        this.gl.vertexAttribPointer(Shader.LOC_IN_POS, 4, this.gl.FLOAT, false, stride, 0);
+        this.gl.vertexAttribPointer(Shader.LOC_IN_UV, 2, this.gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT);
 
         // configure
         this.gl.viewport(0.0, 0.0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -172,22 +93,23 @@ export class WebGL2App {
     }
 
     /// A method to clear screen.
-    clear() {
+    public clear() {
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     }
 
     /// A method to flush screen.
-    flush() {
+    public flush() {
         this.gl.flush();
     }
 
     /// A method to draw a square.
-    draw(q: DrawQuery) {
+    public draw(q: DrawQuery) {
         const uv = this.uvs.get(q.uv_key);
         if (uv !== undefined)
             this.gl.uniform4f(this.loc_uni_uv, uv[0], uv[1], uv[2], uv[3]);
         else
             console.warn("uv " + q.uv_key + " undefined.");
+        this.gl.uniform4f(this.loc_uni_col, q.col[0], q.col[1], q.col[2], q.col[3]);
         this.gl.uniform4f(this.loc_uni_scl, q.scl[0], q.scl[1], 1.0, 1.0);
         this.gl.uniform4f(this.loc_uni_rot, q.rot[0], q.rot[1], q.rot[2], 0.0);
         this.gl.uniform4f(this.loc_uni_pos, q.trs[0], q.trs[1], q.trs[2], 0.0);
@@ -195,7 +117,7 @@ export class WebGL2App {
     }
 
     /// A method to set a camera.
-    view(pos: [number, number, number], rot: [number, number, number]) {
+    public view(pos: [number, number, number], rot: [number, number, number]) {
         const sr = Math.sin(-rot[0]);
         const sp = Math.sin(-rot[1]);
         const sy = Math.sin(-rot[2]);
@@ -228,7 +150,7 @@ export class WebGL2App {
     }
 
     /// A method to set a perse proj.
-    perse(pov: number, aspect: number, near: number, far: number) {
+    public perse(pov: number, aspect: number, near: number, far: number) {
         const div_tanpov = 1.0 / Math.tan(Math.PI * pov / 180.0);
         const div_depth = 1.0 / (far - near);
         const mat = new Float32Array([
@@ -241,7 +163,7 @@ export class WebGL2App {
     }
 
     /// A method to set a ortho proj.
-    ortho(width: number, height: number, depth: number) {
+    public ortho(width: number, height: number, depth: number) {
         const mat = new Float32Array([
             2.0 / width, 0.0, 0.0, 0.0,
             0.0, 2.0 / height, 0.0, 0.0,
@@ -252,7 +174,7 @@ export class WebGL2App {
     }
 
     /// A method to bind a texture.
-    bindTexture(key: string) {
+    public bindTexture(key: string) {
         const tex = this.texs.get(key);
         if (tex !== undefined)
             this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
@@ -261,7 +183,7 @@ export class WebGL2App {
     }
 
     /// A method to load a bitmap texture from HTMLImageElement.
-    loadBitmapTexture(image: HTMLImageElement, key: string) {
+    public loadBitmapTexture(image: HTMLImageElement, key: string) {
         const tex = this.gl.createTexture();
         if (tex === null) {
             console.warn("failed to create a texture for " + key);
@@ -277,7 +199,7 @@ export class WebGL2App {
     }
 
     /// A method to set UVs.
-    setUVs(uvs: [string, [number, number, number, number]][]) {
+    public setUVs(uvs: [string, [number, number, number, number]][]) {
         for (const n of uvs) {
             this.uvs.set(n[0], n[1]);
         }

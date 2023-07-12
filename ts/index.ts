@@ -1,5 +1,9 @@
 import { WebGL2App } from './webgl2';
 import { loadResources } from './resource';
+import { Scene } from './scene';
+import { TitleScene } from './scene/title';
+
+const DIV_60MSPF = 60.0 / 1000.0;
 
 async function main() {
     const wapp = new WebGL2App();
@@ -12,6 +16,7 @@ async function main() {
     let start = 0;
     let prev = 0;
     let wait_cnt = 0;
+    let scene: Scene = new TitleScene();
     
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
@@ -46,17 +51,14 @@ async function main() {
         }
 
         // calculate previous frame time
-        const prev_frame_time = time_stamp - prev;
+        const pft = (time_stamp - prev) * DIV_60MSPF;
         prev = time_stamp;
 
+        // update
         wapp.clear();
-        // TODO: update game.
-        wapp.draw({
-            uv_key: 'load',
-            scl: [1280.0, 960.0],
-            rot: [0.0, 0.0, 0.0],
-            trs: [0.0, 0.0, 0.0],
-        }); // DEBUG
+        const next = scene.update(wapp, pft);
+        if (next !== null)
+            scene = next;
         wapp.flush();
 
         // go to next loop
