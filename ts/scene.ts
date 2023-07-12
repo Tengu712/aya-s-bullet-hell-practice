@@ -1,5 +1,5 @@
-import { WebGL2App } from "./webgl2"
+import { GameApp } from "./index"
 
 export interface Scene {
-    update(wapp: WebGL2App, pft: number): Scene|null;
+    update(app: GameApp): Scene|null;
 }

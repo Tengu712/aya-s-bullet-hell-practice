@@ -1,5 +1,5 @@
 import { Scene } from "../scene";
-import { WebGL2App } from "../webgl2";
+import { GameApp } from "../index";
 import { DrawQueryBuilder, DrawType } from "../webgl2/dquery";
 
 const OPTS = ['title-practice', 'title-start', 'title-assemble', 'title-result', 'title-config'];
@@ -22,9 +22,14 @@ export class TitleScene implements Scene {
         this.cursor = 0;
     }
 
-    update(wapp: WebGL2App, pft: number): Scene | null {
-        wapp.bindTexture('title');
-        wapp.draw(new DrawQueryBuilder('title', [1280.0, 960.0]).build());
+    update(app: GameApp): Scene | null {
+        if (app.istates.get('arrowdown') === 1)
+            this.cursor += 1;
+        if (app.istates.get('arrowup') === 1)
+            this.cursor += OPTS.length - 1;
+
+        app.wapp.bindTexture('title');
+        app.wapp.draw(new DrawQueryBuilder('title', [1280.0, 960.0]).build());
         for (let i = 0; i < OPTS.length; ++i) {
             const uv_key = OPTS[i];
             const x = 30.0 + 30.0 * i;
@@ -35,7 +40,7 @@ export class TitleScene implements Scene {
                 this.cursor % OPTS.length === i
                     ? [c, c, c, 1.0]
                     : [0.6, 0.6, 0.6, 0.6];
-            wapp.draw(
+            app.wapp.draw(
                 new DrawQueryBuilder(uv_key, [512.0, 64.0])
                     .trs([x, y, 0.0])
                     .col(col)
@@ -43,7 +48,7 @@ export class TitleScene implements Scene {
                     .build()
             );
         }
-        this.cnt += pft;
+        this.cnt += app.pft;
         return null;
     }
 }
