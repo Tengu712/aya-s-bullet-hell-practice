@@ -1,15 +1,61 @@
+export type DrawQuery = {
+    scl: [number, number],
+    rot: [number, number, number],
+    trs: [number, number, number],
+};
+
 const CANVAS_WIDTH = 1280;
 const CANVAS_HEIGHT = 960;
 
 const VERT_SHADER_TEXT = `#version 300 es
 layout (location = 0) in vec4 in_pos;
 layout (location = 1) in vec2 in_uv;
+uniform vec4 uni_scl;
+uniform vec4 uni_rot;
+uniform vec4 uni_pos;
+uniform mat4 uni_view;
+uniform mat4 uni_proj;
 out vec2 bridge_uv;
 void main() {
-    gl_Position = in_pos;
+    vec4 pos = in_pos;
+    pos = pos * uni_scl;
+    float sr = sin(uni_rot.x);
+    float sp = sin(uni_rot.y);
+    float sy = sin(uni_rot.z);
+    float cr = cos(uni_rot.x);
+    float cp = cos(uni_rot.y);
+    float cy = cos(uni_rot.z);
+    pos = mat4(
+        // col 1
+        cp * cy,
+        -cp * sy,
+        sp,
+        0.0,
+        // col 2
+        cr * sy + sr * sp * cy,
+        cr * cy - sr * sp * sy,
+        -sr * cp,
+        0.0,
+        // col 3
+        sr * sy - cr * sp * cy,
+        sr * cy + cr * sp * sy,
+        cr * cp,
+        0.0,
+        // col 4
+        0.0,
+        0.0,
+        0.0,
+        1.0
+    ) * pos;
+    pos = pos + uni_pos;
+    pos = uni_view * pos;
+    pos = uni_proj * pos;
+    gl_Position = pos;
     bridge_uv = in_uv;
 }
 `;
+const LOC_IN_POS: number = 0;
+const LOC_IN_UV: number = 1;
 
 const FRAG_SHADER_TEXT = `#version 300 es
 precision highp float;
@@ -48,6 +94,11 @@ export class WebGL2App {
     readonly canvas: HTMLCanvasElement;
     readonly gl: WebGL2RenderingContext;
     readonly texs: Map<string, WebGLTexture>;
+    readonly loc_uni_scl: WebGLUniformLocation;
+    readonly loc_uni_rot: WebGLUniformLocation;
+    readonly loc_uni_pos: WebGLUniformLocation;
+    readonly loc_uni_view: WebGLUniformLocation;
+    readonly loc_uni_proj: WebGLUniformLocation;
 
     /// A constructor.
     constructor() {
@@ -87,18 +138,25 @@ export class WebGL2App {
         }
         this.gl.useProgram(program);
 
-        // attribute locations in vertex shader
-        this.gl.enableVertexAttribArray(0);
-        this.gl.enableVertexAttribArray(1);
+        // shader configure
+        this.loc_uni_scl = this.gl.getUniformLocation(program, 'uni_scl') as WebGLUniformLocation; // HACK: without type assertion.
+        this.loc_uni_rot = this.gl.getUniformLocation(program, 'uni_rot') as WebGLUniformLocation; // HACK: without type assertion.
+        this.loc_uni_pos = this.gl.getUniformLocation(program, 'uni_pos') as WebGLUniformLocation; // HACK: without type assertion.
+        this.loc_uni_view = this.gl.getUniformLocation(program, 'uni_view') as WebGLUniformLocation; // HACK: without type assertion.
+        this.loc_uni_proj = this.gl.getUniformLocation(program, 'uni_proj') as WebGLUniformLocation; // HACK: without type assertion.
+        this.gl.enableVertexAttribArray(LOC_IN_POS);
+        this.gl.enableVertexAttribArray(LOC_IN_UV);
         const stride = 6 * Float32Array.BYTES_PER_ELEMENT;
-        this.gl.vertexAttribPointer(0, 4, this.gl.FLOAT, false, stride, 0);
-        this.gl.vertexAttribPointer(1, 2, this.gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT);
+        this.gl.vertexAttribPointer(LOC_IN_POS, 4, this.gl.FLOAT, false, stride, 0);
+        this.gl.vertexAttribPointer(LOC_IN_UV, 2, this.gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT);
 
         // configure
         this.gl.viewport(0.0, 0.0, CANVAS_WIDTH, CANVAS_HEIGHT);
         this.gl.clearColor(0.15, 0.15, 0.15, 1.0);
         this.gl.enable(this.gl.BLEND);
         this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+        this.view([0.0, 0.0, CANVAS_WIDTH / -2.0], [0.0, 0.0, 0.0]);
+        this.perse(45.0, CANVAS_WIDTH / CANVAS_HEIGHT, 0.0, 1000.0);
 
         // rest
         this.texs = new Map<string, WebGLTexture>();
@@ -115,9 +173,68 @@ export class WebGL2App {
     }
 
     /// A method to draw a square.
-    /// TODO: specify much information.
-    draw() {
+    draw(q: DrawQuery) {
+        this.gl.uniform4f(this.loc_uni_scl, q.scl[0], q.scl[1], 1.0, 1.0);
+        this.gl.uniform4f(this.loc_uni_rot, q.rot[0], q.rot[1], q.rot[2], 0.0);
+        this.gl.uniform4f(this.loc_uni_pos, q.trs[0], q.trs[1], q.trs[2], 0.0);
         this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+    }
+
+    /// A method to set a camera.
+    view(pos: [number, number, number], rot: [number, number, number]) {
+        const sr = Math.sin(-rot[0]);
+        const sp = Math.sin(-rot[1]);
+        const sy = Math.sin(-rot[2]);
+        const cr = Math.cos(-rot[0]);
+        const cp = Math.cos(-rot[1]);
+        const cy = Math.cos(-rot[2]);
+        const mat = new Float32Array([
+            // col 1
+            cp * cy,
+            -cp * sy,
+            sp,
+            0.0,
+            // col 2
+            cr * sy + sr * sp * cy,
+            cr * cy - sr * sp * sy,
+            -sr * cp,
+            0.0,
+            // col 3
+            sr * sy - cr * sp * cy,
+            sr * cy + cr * sp * sy,
+            cr * cp,
+            0.0,
+            // col 4
+            -pos[0],
+            -pos[1],
+            -pos[2],
+            1.0,
+        ]);
+        this.gl.uniformMatrix4fv(this.loc_uni_view, false, mat);
+    }
+
+    /// A method to set a perse proj.
+    perse(pov: number, aspect: number, near: number, far: number) {
+        const div_tanpov = 1.0 / Math.tan(Math.PI * pov / 180.0);
+        const div_depth = 1.0 / (far - near);
+        const mat = new Float32Array([
+            div_tanpov, 0.0, 0.0, 0.0,
+            0.0, div_tanpov * aspect, 0.0, 0.0,
+            0.0, 0.0, far * div_depth, 1.0,
+            0.0, 0.0, -far * near * div_depth, 0.0,
+        ]);
+        this.gl.uniformMatrix4fv(this.loc_uni_proj, false, mat);
+    }
+
+    /// A method to set a ortho proj.
+    ortho(width: number, height: number, depth: number) {
+        const mat = new Float32Array([
+            2.0 / width, 0.0, 0.0, 0.0,
+            0.0, 2.0 / height, 0.0, 0.0,
+            0.0, 0.0, 1.0 / depth, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ]);
+        this.gl.uniformMatrix4fv(this.loc_uni_proj, false, mat);
     }
 
     /// A method to bind a texture.

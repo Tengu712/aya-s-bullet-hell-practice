@@ -51,7 +51,11 @@ async function main() {
 
         wapp.clear();
         // TODO: update game.
-        wapp.draw(); // DEBUG
+        wapp.draw({
+            scl: [2048.0, 1024.0],
+            rot: [0.0, 0.0, 0.0],
+            trs: [0.0, 0.0, 0.0],
+        }); // DEBUG
         wapp.flush();
 
         // go to next loop
