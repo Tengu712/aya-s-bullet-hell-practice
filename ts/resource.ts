@@ -16,4 +16,7 @@ export async function loadResources(wapp: WebGL2App) {
     wapp.bindTexture('load');
     // TODO: draw load scene
     // TODO: load all resources
+    wapp.setUVs([
+        ['load', [0.0, 0.0, 640.0 / 1024.0, 480.0 / 512.0]],
+    ]);
 }

@@ -1,4 +1,5 @@
 export type DrawQuery = {
+    uv_key: string,
     scl: [number, number],
     rot: [number, number, number],
     trs: [number, number, number],
@@ -10,6 +11,7 @@ const CANVAS_HEIGHT = 960;
 const VERT_SHADER_TEXT = `#version 300 es
 layout (location = 0) in vec4 in_pos;
 layout (location = 1) in vec2 in_uv;
+uniform vec4 uni_uv;
 uniform vec4 uni_scl;
 uniform vec4 uni_rot;
 uniform vec4 uni_pos;
@@ -51,7 +53,10 @@ void main() {
     pos = uni_view * pos;
     pos = uni_proj * pos;
     gl_Position = pos;
-    bridge_uv = in_uv;
+    bridge_uv = vec2(
+        uni_uv.x + (uni_uv.z - uni_uv.x) * in_uv.x,
+        uni_uv.y + (uni_uv.w - uni_uv.y) * in_uv.y
+    );
 }
 `;
 const LOC_IN_POS: number = 0;
@@ -94,6 +99,8 @@ export class WebGL2App {
     readonly canvas: HTMLCanvasElement;
     readonly gl: WebGL2RenderingContext;
     readonly texs: Map<string, WebGLTexture>;
+    readonly uvs: Map<string, [number, number, number, number]>;
+    readonly loc_uni_uv: WebGLUniformLocation;
     readonly loc_uni_scl: WebGLUniformLocation;
     readonly loc_uni_rot: WebGLUniformLocation;
     readonly loc_uni_pos: WebGLUniformLocation;
@@ -139,6 +146,7 @@ export class WebGL2App {
         this.gl.useProgram(program);
 
         // shader configure
+        this.loc_uni_uv = this.gl.getUniformLocation(program, 'uni_uv') as WebGLUniformLocation; // HACK: without type assertion.
         this.loc_uni_scl = this.gl.getUniformLocation(program, 'uni_scl') as WebGLUniformLocation; // HACK: without type assertion.
         this.loc_uni_rot = this.gl.getUniformLocation(program, 'uni_rot') as WebGLUniformLocation; // HACK: without type assertion.
         this.loc_uni_pos = this.gl.getUniformLocation(program, 'uni_pos') as WebGLUniformLocation; // HACK: without type assertion.
@@ -160,6 +168,7 @@ export class WebGL2App {
 
         // rest
         this.texs = new Map<string, WebGLTexture>();
+        this.uvs = new Map<string, [number, number, number, number]>();
     }
 
     /// A method to clear screen.
@@ -174,6 +183,11 @@ export class WebGL2App {
 
     /// A method to draw a square.
     draw(q: DrawQuery) {
+        const uv = this.uvs.get(q.uv_key);
+        if (uv !== undefined)
+            this.gl.uniform4f(this.loc_uni_uv, uv[0], uv[1], uv[2], uv[3]);
+        else
+            console.warn("uv " + q.uv_key + " undefined.");
         this.gl.uniform4f(this.loc_uni_scl, q.scl[0], q.scl[1], 1.0, 1.0);
         this.gl.uniform4f(this.loc_uni_rot, q.rot[0], q.rot[1], q.rot[2], 0.0);
         this.gl.uniform4f(this.loc_uni_pos, q.trs[0], q.trs[1], q.trs[2], 0.0);
@@ -240,11 +254,10 @@ export class WebGL2App {
     /// A method to bind a texture.
     bindTexture(key: string) {
         const tex = this.texs.get(key);
-        if (tex === undefined) {
+        if (tex !== undefined)
+            this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
+        else
             console.warn("the texture " + key + " undefined");
-            return;
-        }
-        this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
     }
 
     /// A method to load a bitmap texture from HTMLImageElement.
@@ -261,5 +274,12 @@ export class WebGL2App {
         this.gl.generateMipmap(this.gl.TEXTURE_2D);
         this.gl.bindTexture(this.gl.TEXTURE_2D, null);
         this.texs.set(key, tex);
+    }
+
+    /// A method to set UVs.
+    setUVs(uvs: [string, [number, number, number, number]][]) {
+        for (const n of uvs) {
+            this.uvs.set(n[0], n[1]);
+        }
     }
 };

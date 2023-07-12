@@ -52,7 +52,8 @@ async function main() {
         wapp.clear();
         // TODO: update game.
         wapp.draw({
-            scl: [2048.0, 1024.0],
+            uv_key: 'load',
+            scl: [1280.0, 960.0],
             rot: [0.0, 0.0, 0.0],
             trs: [0.0, 0.0, 0.0],
         }); // DEBUG
