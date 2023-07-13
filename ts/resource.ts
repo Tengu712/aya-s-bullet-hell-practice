@@ -14,7 +14,7 @@ function loadImage(wapp: WebGL2App, url: string, key: string): Promise<void> {
 
 export async function loadResources(wapp: WebGL2App) {
     // load
-    await loadImage(wapp, './data/load.png', 'load');
+    await loadImage(wapp, '../data/load.png', 'load');
     wapp.setUVs([['load', [0.0, 0.0, 640.0 / 1024, 480.0 / 512.0]]]);
     wapp.clear();
     wapp.bindTexture('load');
@@ -23,7 +23,7 @@ export async function loadResources(wapp: WebGL2App) {
     
     // load all
     const promises = [
-        loadImage(wapp, './data/title.png', 'title'),
+        loadImage(wapp, '../data/title.png', 'title'),
     ];
     const DIV_1024 = 1.0 / 1024.0;
     const DIV_2048 = 1.0 / 2048.0;

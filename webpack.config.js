@@ -4,7 +4,7 @@ module.exports = {
     mode: 'production',
     entry: './ts/index.ts',
     output: {
-        path: path.join(__dirname, 'js'),
+        path: path.join(__dirname, 'pages/js'),
         filename: 'index.js'
     },
     module: {
