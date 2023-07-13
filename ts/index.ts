@@ -2,6 +2,7 @@ import { WebGL2App } from './webgl2';
 import { loadResources } from './resource';
 import { Scene } from './scene';
 import { TitleScene } from './scene/title';
+import { TextManager } from './tmanager';
 
 const DIV_60MSPF = 60.0 / 1000.0;
 const KEYS = new Set<string>();
@@ -17,18 +18,28 @@ KEYS.add('x');
 export type GameApp = {
     readonly wapp: WebGL2App,
     readonly istates: Map<string, number>,
+    readonly texts: TextManager,
     pft: number,
 };
 
 async function main() {
+    // create app
     const app: GameApp = {
         wapp: new WebGL2App(),
+        istates: new Map(),
+        texts: new TextManager(),
         pft: 0,
-        istates: new Map<string, number>(),
     };
 
     // load scene
     await loadResources(app.wapp);
+
+    // create fps label
+    const fps_label = app.texts.add('fps', '00.0fps', 30, 0, 0);
+    fps_label.style.left = '';
+    fps_label.style.top = '';
+    fps_label.style.right = '0';
+    fps_label.style.bottom = '0';
 
     let cnt = 0;
     let start = 0;
@@ -37,7 +48,6 @@ async function main() {
     let scene: Scene = new TitleScene();
 
     const wrapper = document.getElementById('wrapper') as HTMLDivElement;
-    const fps_label = document.getElementById('fps-label') as HTMLLabelElement;
     function resize_callback(again: boolean) {
         // canvas
         let w = window.innerWidth;
@@ -52,7 +62,7 @@ async function main() {
             wrapper.style.height = h + 'px';
         }
         // labels
-        fps_label.style.fontSize = (30.0 * h / 960.0) + 'px';
+        app.texts.resize(h / 960.0);
         // NOTE: to deal with fullscreen change, call self after a certain time.
         if (again)
             setTimeout(resize_callback, 300, false);
