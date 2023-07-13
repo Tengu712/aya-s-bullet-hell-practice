@@ -23,11 +23,13 @@ export async function loadResources(wapp: WebGL2App) {
     
     // load all
     const promises = [
+        loadImage(wapp, '../data/white.png', 'white'),
         loadImage(wapp, '../data/title.png', 'title'),
     ];
     const DIV_1024 = 1.0 / 1024.0;
     const DIV_2048 = 1.0 / 2048.0;
     wapp.setUVs([
+        ['white', [0.0, 0.0, 1.0, 1.0]],
         ['title', [0.0, 0.0, 1280.0 * DIV_2048, 960.0 * DIV_1024]],
         ['title-practice', [1280.0 * DIV_2048, 0.0 * DIV_1024, 1792.0 * DIV_2048, 64.0 * DIV_1024]],
         ['title-start', [1280.0 * DIV_2048, 64.0 * DIV_1024, 1792.0 * DIV_2048, 128.0 * DIV_1024]],
