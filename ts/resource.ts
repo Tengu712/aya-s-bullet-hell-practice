@@ -8,13 +8,14 @@ function loadImage(wapp: WebGL2App, url: string, key: string): Promise<void> {
             wapp.loadBitmapTexture(image, key);
             resolve();
         }
+        image.crossOrigin = "Anonymous";
         image.src = url;
     });
 }
 
 export async function loadResources(wapp: WebGL2App) {
     // load
-    await loadImage(wapp, '../data/load.png', 'load');
+    await loadImage(wapp, 'https://abpdat.skdassoc.work/load.png', 'load');
     wapp.setUVs([['load', [0.0, 0.0, 640.0 / 1024, 480.0 / 512.0]]]);
     wapp.clear();
     wapp.bindTexture('load');
@@ -23,8 +24,8 @@ export async function loadResources(wapp: WebGL2App) {
     
     // load all
     const promises = [
-        loadImage(wapp, '../data/white.png', 'white'),
-        loadImage(wapp, '../data/title.png', 'title'),
+        loadImage(wapp, 'https://abpdat.skdassoc.work/white.png', 'white'),
+        loadImage(wapp, 'https://abpdat.skdassoc.work/title.png', 'title'),
     ];
     const DIV_1024 = 1.0 / 1024.0;
     const DIV_2048 = 1.0 / 2048.0;
