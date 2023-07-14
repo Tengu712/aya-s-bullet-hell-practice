@@ -25,12 +25,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       
-      - name: Download binary file
-        run: |
-          mkdir ./pages/data
-          chmod 744 ./binary.sh
-          ./binary.sh
-
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
