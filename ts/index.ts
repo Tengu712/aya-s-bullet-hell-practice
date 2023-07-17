@@ -2,23 +2,20 @@ import { WebGL2App } from './webgl2';
 import { loadResources } from './resource';
 import { Scene } from './scene';
 import { TitleScene } from './scene/title';
-import { TextManager } from './tmanager';
+import { TextBuilder, TextManager } from './manager/tmanager';
+import { InputManager } from './manager/imanager';
 
 const DIV_60MSPF = 60.0 / 1000.0;
-const KEYS = new Set<string>();
-KEYS.add('arrowup');
-KEYS.add('arrowdown');
-KEYS.add('arrowleft');
-KEYS.add('arrowright');
-KEYS.add('shift');
-KEYS.add('escape');
-KEYS.add('z');
-KEYS.add('x');
 
 export type GameApp = {
+    // core
     readonly wapp: WebGL2App,
-    readonly istates: Map<string, number>,
-    readonly texts: TextManager,
+    readonly im: InputManager,
+    readonly tm: TextManager,
+
+    // system
+    debug_mode: boolean,
+    framerate_adaptation: boolean,
     pft: number,
 };
 
@@ -26,26 +23,23 @@ async function main() {
     // create app
     const app: GameApp = {
         wapp: new WebGL2App(),
-        istates: new Map(),
-        texts: new TextManager(),
+        im: new InputManager(),
+        tm: new TextManager(),
+        debug_mode: false,
+        framerate_adaptation: true,
         pft: 0,
     };
 
     // load scene
     await loadResources(app.wapp);
 
-    // create fps label
-    const fps_label = app.texts.add('fps', '00.0fps', 30, 0, 0);
-    fps_label.style.left = '';
-    fps_label.style.top = '';
-    fps_label.style.right = '0';
-    fps_label.style.bottom = '0';
-
+    // fps
     let cnt = 0;
     let start = 0;
     let prev = 0;
     let wait_cnt = 0;
-    let scene: Scene = new TitleScene();
+    const fps_label = new TextBuilder('00.0fps').size(30).rb(0, 0).build();
+    app.tm.add(fps_label);
 
     const wrapper = document.getElementById('wrapper') as HTMLDivElement;
     function resize_callback(again: boolean) {
@@ -62,7 +56,7 @@ async function main() {
             wrapper.style.height = h + 'px';
         }
         // labels
-        app.texts.resize(h / 960.0);
+        app.tm.resize(h / 960.0);
         // NOTE: to deal with fullscreen change, call self after a certain time.
         if (again)
             setTimeout(resize_callback, 300, false);
@@ -78,22 +72,7 @@ async function main() {
         }
     });
 
-    document.addEventListener('keydown', (event) => {
-        const key = event.key.toLowerCase();
-        if (!KEYS.has(key))
-            return;
-        if (!app.istates.has(key))
-            app.istates.set(key, 0);
-        event.preventDefault();
-    });
-
-    document.addEventListener('keyup', (event) => {
-        const key = event.key.toLowerCase();
-        if (!KEYS.has(key))
-            return;
-        app.istates.delete(key);
-        event.preventDefault();
-    });
+    let scene: Scene = new TitleScene();
 
     function loop(time_stamp: number) {
         // wait until fps is stable
@@ -119,20 +98,17 @@ async function main() {
         }
 
         // calculate previous frame time
-        app.pft = (time_stamp - prev) * DIV_60MSPF;
+        app.pft = app.framerate_adaptation ? (time_stamp - prev) * DIV_60MSPF : 1.0;
         prev = time_stamp;
 
-        // update input states
-        for (const [k, v] of app.istates) {
-            app.istates.set(k, v + 1);
-        }
-
         // update
+        app.im.updateGamepad();
         app.wapp.clear();
         const next = scene.update(app);
         if (next !== null)
             scene = next;
         app.wapp.flush();
+        app.im.increment();
 
         // go to next loop
         requestAnimationFrame(loop);

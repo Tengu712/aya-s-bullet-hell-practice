@@ -1,10 +1,12 @@
 import { Scene } from "../scene";
 import { GameApp } from "../index";
 import { DrawQueryBuilder, DrawType } from "../webgl2/dquery";
+import { ConfigScene } from "./config";
+import { KID } from "../manager/imanager";
 
-const FADEIN_CNT = 40;
-const FLASH_CNT = 40;
-const FADEOUT_CNT = 60;
+const FADEIN_CNT = 30;
+const FLASH_CNT = 20;
+const FADEOUT_CNT = 30;
 const OPTS = ['title-practice', 'title-start', 'title-assemble', 'title-result', 'title-config'];
 
 enum State {
@@ -78,10 +80,11 @@ export class TitleScene implements Scene {
                 case 1:
                 case 2:
                 case 3:
-                case 4:
                     this.state = State.Fadein; // DEBUG
                     this.cnt = 0; // DEBUG
                     return null;
+                case 4:
+                    return new ConfigScene(app);
             }
         }
 
@@ -97,11 +100,11 @@ export class TitleScene implements Scene {
                     this.state = State.Normal;
                 break;
             case State.Normal:
-                if (app.istates.get('arrowdown') === 1)
+                if (app.im.get(KID.Down) === 1)
                     this.cursor += 1;
-                if (app.istates.get('arrowup') === 1)
+                if (app.im.get(KID.Up) === 1)
                     this.cursor += OPTS.length - 1;
-                if (app.istates.get('z') === 1) {
+                if (app.im.get(KID.Z) === 1) {
                     this.state = State.Flash;
                     this.cnt = 0;
                 }
