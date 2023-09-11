@@ -3,6 +3,7 @@ import { TVec4 } from "@/util/TVec4"
 import { TCamera } from "@/graphics/TCamera"
 import { TDrawQuery } from "@/graphics/TDrawQuery"
 import { IRenderer } from "@/graphics/IRenderer"
+import { IInputManager } from "@/input/IInputManager"
 
 import { IAppFacade } from "@/IAppFacade"
 
@@ -10,19 +11,22 @@ export class AppFacade implements IAppFacade {
   private readonly width: number
   private readonly height: number
   private readonly renderer: IRenderer
+  private readonly inputManager: IInputManager
 
   constructor(
     width: number,
     height: number,
-    renderer: IRenderer
+    renderer: IRenderer,
+    inputManager: IInputManager
   ) {
     this.width = width
     this.height = height
     this.renderer = renderer
+    this.inputManager = inputManager
   }
 
   /* =============================================================================================================== */
-  /*     graphics                                                                                                     */
+  /*     graphics                                                                                                    */
   /* =============================================================================================================== */
 
   getwidth(): number {
@@ -42,5 +46,13 @@ export class AppFacade implements IAppFacade {
   }
   draw(query: TDrawQuery): void {
     return this.renderer.draw(query)
+  }
+
+  /* =============================================================================================================== */
+  /*     input                                                                                                       */
+  /* =============================================================================================================== */
+  
+  getInputManager(): IInputManager {
+    return this.inputManager
   }
 }

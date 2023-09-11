@@ -1,11 +1,13 @@
 import { IScene } from "@/scene/IScene"
 import { IRenderer } from "@/graphics/IRenderer"
+import { IInputManager } from "@/input/IInputManager"
 
 import { WebGL2 } from "./graphics/WebGL2"
 import { FragmentShader } from "./graphics/shader/FragmentShader"
 import { VertexShader } from "./graphics/shader/VertexShader"
 import { AppFacade } from "./AppFacade"
 import { LoadScene } from "./scene/LoadScene"
+import { InputManager } from "./input/InputManager"
 
 /// [Instance Creation Allowed Class]
 export class Program {
@@ -13,6 +15,7 @@ export class Program {
   private static readonly HEIGHT: number = 960
 
   private readonly renderer: IRenderer
+  private readonly inputManager: IInputManager
   private scene: IScene
 
   constructor() {
@@ -21,10 +24,12 @@ export class Program {
 
     // create an app facade
     this.renderer = new WebGL2(Program.WIDTH, Program.HEIGHT, new VertexShader(), new FragmentShader())
+    this.inputManager = new InputManager()
     const app = new AppFacade(
       Program.WIDTH,
       Program.HEIGHT,
-      this.renderer
+      this.renderer,
+      this.inputManager
     )
     this.scene = new LoadScene(app)
 
@@ -49,6 +54,7 @@ export class Program {
   run() {
     // TODO: calculate deltaTime
 
+    this.inputManager.update()
     this.renderer.clear()
     this.scene = this.scene.update(1)
     this.renderer.flush()

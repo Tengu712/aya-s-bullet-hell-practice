@@ -76,8 +76,12 @@ export class TitleScene implements IScene {
   }
 
   update(deltaTime: number): IScene {
-    if (this.cnt % 120 === 0)
+    const down = this.app.getInputManager().get('arrowdown')
+    const up = this.app.getInputManager().get('arrowup')
+    if (down == 1 || (down >= 30 && down % 8 == 0))
       this.moveCursor(1)
+    if (up == 1 || (up >= 30 && up % 8 == 0))
+      this.moveCursor(this.options.length - 1)
 
     this.fadein.update(deltaTime)
     for (const option of this.options) {
