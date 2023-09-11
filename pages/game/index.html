@@ -1,40 +1,49 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" class="full">
 
 <head>
-    <meta charset="utf-8">
-    <title>射命丸文の弾幕稽古</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: black;
-        }
-        div#wrapper {
-            position: relative;
-            width: 1280px;
-            height: 960px;
-            margin: 0 auto;
-            vertical-align: bottom;
-        }
-        canvas#main-canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-        label {
-            position: absolute;
-            user-select: none;
-            color: white;
-        }
-    </style>
+  <meta charset="utf-8">
+  <title>射命丸文の弾幕稽古</title>
+  <style>
+    .full {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: black;
+    }
+
+    div#wrapper {
+      position: relative;
+      margin: 0 auto;
+      width: 1280px;
+      height: 960px;
+      vertical-align: bottom;
+    }
+
+    canvas#main-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    label {
+      position: absolute;
+      user-select: none;
+      color: white;
+    }
+  </style>
 </head>
 
-<body>
-    <div id="wrapper">
-        <canvas id="main-canvas"></canvas>
-    </div>
-    <script src="../js/index.js"></script>
+<body class="full">
+  <div id="wrapper">
+    <canvas id="main-canvas"></canvas>
+  </div>
+  <script src="../js/index.js"></script>
 </body>
 
 </html>
