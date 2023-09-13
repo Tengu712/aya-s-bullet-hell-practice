@@ -1,13 +1,16 @@
 import { IScene } from "@/scene/IScene"
 import { IRenderer } from "@/graphics/IRenderer"
+import { ITextManager } from "@/text/ITextManager"
 import { IInputManager } from "@/input/IInputManager"
 
 import { WebGL2 } from "./graphics/WebGL2"
 import { FragmentShader } from "./graphics/shader/FragmentShader"
 import { VertexShader } from "./graphics/shader/VertexShader"
+import { TextManager } from "./text/TextManager"
+import { InputManager } from "./input/InputManager"
 import { AppFacade } from "./AppFacade"
 import { LoadScene } from "./scene/LoadScene"
-import { InputManager } from "./input/InputManager"
+import { BottomRightText } from "./util/BottomRightText"
 
 /// [Instance Creation Allowed Class]
 export class Program {
@@ -15,7 +18,9 @@ export class Program {
   private static readonly HEIGHT: number = 960
 
   private readonly renderer: IRenderer
+  private readonly textManager: ITextManager
   private readonly inputManager: IInputManager
+  private readonly fpsLabel: HTMLLabelElement
   private scene: IScene
 
   constructor() {
@@ -24,11 +29,13 @@ export class Program {
 
     // create an app facade
     this.renderer = new WebGL2(Program.WIDTH, Program.HEIGHT, new VertexShader(), new FragmentShader())
+    this.textManager = new TextManager()
     this.inputManager = new InputManager()
     const app = new AppFacade(
       Program.WIDTH,
       Program.HEIGHT,
       this.renderer,
+      this.textManager,
       this.inputManager
     )
     this.scene = new LoadScene(app)
@@ -47,8 +54,13 @@ export class Program {
         wrapper.style.width = w + 'px'
         wrapper.style.height = h + 'px'
       }
+      this.textManager.resize(h / Program.HEIGHT)
     }
     new ResizeObserver(() => resizeCallback()).observe(document.body)
+
+    // add fps label
+    this.fpsLabel = new BottomRightText('00.0fps', 30, 1, 0).build()
+    this.textManager.add(this.fpsLabel)
   }
 
   run() {

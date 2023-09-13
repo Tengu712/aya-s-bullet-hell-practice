@@ -16,6 +16,10 @@ export interface IAppFacade {
   setCamera(camera: TCamera): void
   draw(query: TDrawQuery): void
 
+  // text
+  addText(text: HTMLLabelElement): void
+  deleteText(text: HTMLLabelElement): void
+
   // input
   getInputManager(): IInputManager
 }

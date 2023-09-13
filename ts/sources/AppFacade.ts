@@ -3,6 +3,7 @@ import { TVec4 } from "@/util/TVec4"
 import { TCamera } from "@/graphics/TCamera"
 import { TDrawQuery } from "@/graphics/TDrawQuery"
 import { IRenderer } from "@/graphics/IRenderer"
+import { ITextManager } from "@/text/ITextManager"
 import { IInputManager } from "@/input/IInputManager"
 
 import { IAppFacade } from "@/IAppFacade"
@@ -11,17 +12,20 @@ export class AppFacade implements IAppFacade {
   private readonly width: number
   private readonly height: number
   private readonly renderer: IRenderer
+  private readonly textManager: ITextManager
   private readonly inputManager: IInputManager
 
   constructor(
     width: number,
     height: number,
     renderer: IRenderer,
+    textManager: ITextManager,
     inputManager: IInputManager
   ) {
     this.width = width
     this.height = height
     this.renderer = renderer
+    this.textManager = textManager
     this.inputManager = inputManager
   }
 
@@ -51,7 +55,19 @@ export class AppFacade implements IAppFacade {
   /* =============================================================================================================== */
   /*     input                                                                                                       */
   /* =============================================================================================================== */
-  
+
+  addText(text: HTMLLabelElement): void {
+    return this.textManager.add(text)
+  }
+
+  deleteText(text: HTMLLabelElement): void {
+    return this.textManager.delete(text)
+  }
+
+  /* =============================================================================================================== */
+  /*     input                                                                                                       */
+  /* =============================================================================================================== */
+
   getInputManager(): IInputManager {
     return this.inputManager
   }
