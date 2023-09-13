@@ -1,41 +1,27 @@
-# 射命丸文の弾幕稽古
+<p align="center">
+  <a href="https://abp.skdassoc.work/">
+    <img alt="Logo" width="512" src="https://abpdat.skdassoc.work/logo.png">
+  </a>
+</p>
 
-## Outline
+<p align="center">
+  <a href="https://abp.skdassoc.work/">
+    <img src="https://github.com/Tengu712/aya-s-bullet-hell-practice/actions/workflows/gh-pages.yml/badge.svg" alt="Deployment">
+  </a>
+  <img src="https://img.shields.io/badge/Version-dev-red.svg" alt="License">
+  <a href="https://github.com/Tengu712/aya-s-bullet-hell-practice/blob/master/LICENSE">
+    <img src="https://img.shields.io/badge/License-CC0_1.0-blue.svg" alt="License">
+  </a>
+</p>
 
-東方Projectの二次創作ゲーム。
+## What is this?
+
+東方Projectの二次創作弾幕STG。そのGitリモートリポジトリ。
+
+本居小鈴と様々な装備を操作して射命丸文から弾幕STGの「いろは」を学ぼう。
 
 ## License
 
-このゲームのコードは「CC0 1.0 Universal」のもとパブリックドメインのもとに配布されている。
-また、東方Projectに関するすべて著作権は上海アリス幻樂団に帰属する。
+このゲームのソースコードは「CC0 1.0 Universal」のもとパブリックドメインのもとに配布されている。
 
-## Development
-
-オブジェクト指向プログラミングパラダイムに従っている。勉強も兼ねて、過剰に従う。
-
-### Regulations
-
-実装が一つしか想定されないオブジェクトでも、オブジェクトに切り出すべきと判断される限り、必ずインターフェースを定義する。
-
-疎結合を図るため、領域を Structure と Control に分ける。
-
-- Structure
-  - プログラムの構成部品
-  - 他のオブジェクトとは必ずインターフェースを介す
-  - ユーザ定義型は Structure に属す
-- Control
-  - プログラムの流れ
-  - インスタンスの生成を許し、そのために限り具象オブジェクトの`import`を許す
-  - メインクラス、ファクトリクラス、シーンクラスの実装のみが Control に属す
-
-### Directory
-
-- `interfaces`
-  - `@/`でアクセス可能
-  - インターフェースとユーザ定義型
-- `sources`
-  - `~/`でアクセス可能
-  - 具象クラス
-- `sources/util`
-  - グローバルスコープに置いても良いようなオブジェクト
-  - 改善対象
+ただし、ソースコードとは関係ないが、東方Projectに関するすべて著作権は上海アリス幻樂団に帰属することに注意したい。
