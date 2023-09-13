@@ -11,6 +11,7 @@ import { InputManager } from "./input/InputManager"
 import { AppFacade } from "./AppFacade"
 import { LoadScene } from "./scene/LoadScene"
 import { BottomRightText } from "./util/BottomRightText"
+import { FpsCounter } from "./util/FpsCounter"
 
 /// [Instance Creation Allowed Class]
 export class Program {
@@ -20,12 +21,12 @@ export class Program {
   private readonly renderer: IRenderer
   private readonly textManager: ITextManager
   private readonly inputManager: IInputManager
-  private readonly fpsLabel: HTMLLabelElement
+  private readonly fpsCounter: FpsCounter
   private scene: IScene
 
   constructor() {
     // to prevent this instance from being garbage collected.
-    this.run = this.run.bind(this)
+    this.loop = this.loop.bind(this)
 
     // create an app facade
     this.renderer = new WebGL2(Program.WIDTH, Program.HEIGHT, new VertexShader(), new FragmentShader())
@@ -59,18 +60,24 @@ export class Program {
     new ResizeObserver(() => resizeCallback()).observe(document.body)
 
     // add fps label
-    this.fpsLabel = new BottomRightText('00.0fps', 30, 1, 0).build()
-    this.textManager.add(this.fpsLabel)
+    const fpsLabel = new BottomRightText('00.0fps', 30, 1, 0).build()
+    this.textManager.add(fpsLabel)
+    this.fpsCounter = new FpsCounter(fpsLabel)
   }
 
   run() {
-    // TODO: calculate deltaTime
+    requestAnimationFrame(this.loop)
+  }
+
+  private loop(timeStamp: number) {
+    const deltaTime = this.fpsCounter.update(timeStamp)
 
     this.inputManager.update()
+
     this.renderer.clear()
-    this.scene = this.scene.update(1)
+    this.scene = this.scene.update(deltaTime)
     this.renderer.flush()
 
-    requestAnimationFrame(this.run)
+    requestAnimationFrame(this.loop)
   }
 }
