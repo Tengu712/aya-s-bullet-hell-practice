@@ -25,11 +25,11 @@ fn windowProcedure(
     return win.DefWindowProcW(window, msg, wparam, lparam);
 }
 
-pub const Window = struct {
+pub const WindowApp = struct {
     instance: win.HINSTANCE,
     window: win.HWND,
 
-    pub fn new() Error!Window {
+    pub fn new() Error!WindowApp {
         const instance = win.GetModuleHandleW(null);
         if (instance == null) {
             return error.NullInstance;
@@ -83,7 +83,7 @@ pub const Window = struct {
         _ = win.ShowWindow(window, win.SW_SHOWDEFAULT);
         _ = win.UpdateWindow(window);
 
-        return Window{
+        return WindowApp{
             .instance = instance,
             .window = window,
         };

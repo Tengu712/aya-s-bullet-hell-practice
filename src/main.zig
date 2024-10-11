@@ -1,16 +1,26 @@
 const std = @import("std");
-const winutil = @import("window/windows.zig");
+const windows = @import("window/windows.zig");
+const vulkan = @import("renderer/vulkan.zig");
 
 pub fn main() !void {
-    const window = try winutil.Window.new();
+    const wapp = try windows.WindowApp.new();
+    defer wapp.destroy();
 
+    const vapp = try vulkan.VulkanApp.new(wapp);
+    defer vapp.destroy();
+
+    var count: u32 = 0;
     while (true) {
-        if (!window.do_events()) {
+        if (!wapp.do_events()) {
             break;
         }
-        std.log.debug("Hello, world!", .{});
-        std.time.sleep(100000000);
-    }
+        vapp.render() catch {
+            std.log.warn("failed to render.", .{});
+        };
 
-    window.destroy();
+        count += 1;
+        if (count % 60 == 0) {
+            std.log.debug("{}", .{count / 60});
+        }
+    }
 }
