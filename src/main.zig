@@ -1,6 +1,16 @@
 const std = @import("std");
-const log = std.log;
+const winutil = @import("window/windows.zig");
 
 pub fn main() !void {
-    log.info("Hello, world!", .{});
+    const window = try winutil.Window.new();
+
+    while (true) {
+        if (!window.do_events()) {
+            break;
+        }
+        std.log.debug("Hello, world!", .{});
+        std.time.sleep(100000000);
+    }
+
+    window.destroy();
 }
