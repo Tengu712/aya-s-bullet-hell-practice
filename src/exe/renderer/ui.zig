@@ -1,11 +1,10 @@
 const std = @import("std");
+const shader = @import("shader");
 const vulkan = @import("vulkan.zig");
 const gc = @import("../gc.zig");
 const vk = vulkan.vk;
 
 const ALLOCATOR = std.heap.page_allocator;
-const VERTEX_SHADER_FILE = @embedFile("../shader/ui.vert.spv");
-const FRAGMENT_SHADER_FILE = @embedFile("../shader/ui.frag.spv");
 
 pub const Error = error{
     DescriptorSetLayoutCreation,
@@ -26,8 +25,8 @@ pub const UiPipeline = struct {
 
         try createDescriptorSetLayout(&pipeline, vapp);
         try createPipelineLayout(&pipeline, vapp);
-        pipeline.vertex_shader = try createShaderModule(vapp, VERTEX_SHADER_FILE);
-        pipeline.fragment_shader = try createShaderModule(vapp, FRAGMENT_SHADER_FILE);
+        pipeline.vertex_shader = try createShaderModule(vapp, shader.UI_VERTEX_SHADER_FILE);
+        pipeline.fragment_shader = try createShaderModule(vapp, shader.UI_FRAGMENT_SHADER_FILE);
         try createPipeline(&pipeline, vapp);
 
         return pipeline;

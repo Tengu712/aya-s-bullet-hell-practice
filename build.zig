@@ -14,10 +14,15 @@ pub fn build(b: *std.Build) void {
     const shader_compile = b.addSystemCommand(&.{"py"});
     shader_compile.addArgs(&.{"util/compile-shader/main.py"});
 
+    // シェーダ埋込み用モジュール
+    const shader_module = b.createModule(.{
+        .root_source_file = b.path("src/shader/shader.zig"),
+    });
+
     // 本体のビルド設定
     const exe = b.addExecutable(.{
         .name = "abp",
-        .root_source_file = b.path("src/main.zig"),
+        .root_source_file = b.path("src/exe/main.zig"),
         .target = b.standardTargetOptions(.{}),
         .optimize = b.standardOptimizeOption(.{}),
         .link_libc = true,
@@ -26,6 +31,7 @@ pub fn build(b: *std.Build) void {
     exe.addLibraryPath(LazyPath{ .cwd_relative = vk_library_path });
     exe.linkSystemLibrary("vulkan-1");
     exe.step.dependOn(&shader_compile.step);
+    exe.root_module.addImport("shader", shader_module);
 
     // 本体のビルド
     b.installArtifact(exe);
