@@ -39,6 +39,161 @@ pub const Error = error{
     CommandBufferEnding,
     Submittion,
     Presentation,
+    MemoryAllocation,
+    MemoryUpdating,
+    BufferCreation,
+    ModelCreation,
+};
+
+/// デバイスメモリを管理するオブジェクト
+pub const Memory = struct {
+    device_memory: vk.VkDeviceMemory,
+
+    pub fn new(
+        vapp: VulkanApp,
+        flags: vk.VkMemoryPropertyFlags,
+        memory_type: u32,
+        size: vk.VkDeviceSize,
+    ) Error!Memory {
+        var index: u32 = 0;
+        // NOTE: 1 << indexとするとLHS of shift must be a fixed-width integer type, or RHS must be comptime-knownと怒られるので。
+        //       @as(u32, i) << indexとするとexpected type 'u5', found 'u32'と怒られるので。
+        var memory_type_b: u32 = 1;
+        for (vapp.physical_device_memory_properties.memoryTypes) |n| {
+            if (index >= vapp.physical_device_memory_properties.memoryTypeCount) {
+                return error.MemoryAllocation;
+            }
+            if (memory_type_b & memory_type > 0 and (n.propertyFlags & flags) == flags) {
+                break;
+            }
+            index += 1;
+            memory_type_b *= 2;
+        }
+
+        const ai = vk.VkMemoryAllocateInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext = null,
+            .allocationSize = size,
+            .memoryTypeIndex = @intCast(index),
+        };
+        var device_memory: vk.VkDeviceMemory = null;
+        if (vk.vkAllocateMemory(vapp.device, &ai, null, &device_memory) != vk.VK_SUCCESS) {
+            return error.MemoryAllocation;
+        }
+
+        return .{ .device_memory = device_memory };
+    }
+
+    pub fn destroy(self: @This(), vapp: VulkanApp) void {
+        vk.vkFreeMemory(vapp.device, self.device_memory, null);
+    }
+
+    pub fn update(self: @This(), vapp: VulkanApp, comptime T: type, source: []const T) Error!void {
+        // NOTE: memcpyを使うため。
+        //       スコープを狭くしたいのでここで。
+        const c = @cImport(@cInclude("string.h"));
+        var p: [*]usize = undefined;
+        if (vk.vkMapMemory(vapp.device, self.device_memory, 0, vk.VK_WHOLE_SIZE, 0, @ptrCast(&p)) != vk.VK_SUCCESS) {
+            return error.MemoryUpdating;
+        }
+        _ = c.memcpy(@ptrCast(p), @ptrCast(source.ptr), @sizeOf(T) * source.len);
+        vk.vkUnmapMemory(vapp.device, self.device_memory);
+    }
+};
+
+/// バッファを管理するオブジェクト
+pub const Buffer = struct {
+    buffer: vk.VkBuffer,
+    memory: Memory,
+    memory_requirements: vk.VkMemoryRequirements,
+
+    pub fn new(
+        vapp: VulkanApp,
+        flags: vk.VkMemoryPropertyFlags,
+        usage: vk.VkBufferUsageFlags,
+        size: vk.VkDeviceSize,
+    ) Error!Buffer {
+        const ci = vk.VkBufferCreateInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .size = size,
+            .usage = usage,
+            .sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 0,
+            .pQueueFamilyIndices = null,
+        };
+        var buffer: vk.VkBuffer = null;
+        if (vk.vkCreateBuffer(vapp.device, &ci, null, &buffer) != vk.VK_SUCCESS) {
+            return error.BufferCreation;
+        }
+
+        var memory_requirements: vk.VkMemoryRequirements = undefined;
+        vk.vkGetBufferMemoryRequirements(vapp.device, buffer, &memory_requirements);
+
+        const memory = try Memory.new(vapp, flags, memory_requirements.memoryTypeBits, size);
+        if (vk.vkBindBufferMemory(vapp.device, buffer, memory.device_memory, 0) != vk.VK_SUCCESS) {
+            return error.BufferCreation;
+        }
+
+        return .{
+            .buffer = buffer,
+            .memory = memory,
+            .memory_requirements = memory_requirements,
+        };
+    }
+
+    pub fn destroy(self: @This(), vapp: VulkanApp) void {
+        self.memory.destroy(vapp);
+        vk.vkDestroyBuffer(vapp.device, self.buffer, null);
+    }
+};
+
+/// 正方形モデルのデータのための構造体
+pub const Model = struct {
+    vertex_buffer: Buffer,
+    index_buffer: Buffer,
+    indices_count: u32,
+
+    fn new(vapp: VulkanApp) Error!Model {
+        const vertices = [_]f32{
+            // top left
+            -0.5, -0.5, 0.0,
+            // bottom left
+            -0.5, 0.5,  0.0,
+            // bottom right
+            0.5,  0.5,  0.0,
+            // top right
+            0.5,  -0.5, 0.0,
+        };
+        const vertex_buffer = try Buffer.new(
+            vapp,
+            vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+            vk.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            @sizeOf(@TypeOf(vertices)),
+        );
+        try vertex_buffer.memory.update(vapp, f32, &vertices);
+
+        const indices = [_]u32{ 0, 1, 2, 0, 2, 3 };
+        const index_buffer = try Buffer.new(
+            vapp,
+            vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+            vk.VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            @sizeOf(@TypeOf(indices)),
+        );
+        try index_buffer.memory.update(vapp, u32, &indices);
+
+        return .{
+            .vertex_buffer = vertex_buffer,
+            .index_buffer = index_buffer,
+            .indices_count = indices.len,
+        };
+    }
+
+    fn destroy(self: @This(), vapp: VulkanApp) void {
+        self.vertex_buffer.destroy(vapp);
+        self.index_buffer.destroy(vapp);
+    }
 };
 
 pub const VulkanApp = struct {
@@ -67,6 +222,11 @@ pub const VulkanApp = struct {
     // pipelines
     ui_pipeline: ui.UiPipeline = undefined,
 
+    // other
+    // NOTE: 正方形モデル。
+    //       単純な2Dゲームなので正方形モデルしか扱わない。
+    model: Model = undefined,
+
     pub fn new(wapp: windows.WindowApp) (Error || ui.Error)!VulkanApp {
         var vapp = VulkanApp{};
 
@@ -88,11 +248,15 @@ pub const VulkanApp = struct {
 
         vapp.ui_pipeline = try ui.UiPipeline.new(vapp);
 
+        vapp.model = try Model.new(vapp);
+
         return vapp;
     }
 
     pub fn destroy(self: @This()) void {
         _ = vk.vkDeviceWaitIdle(self.device);
+
+        self.model.destroy(self);
 
         self.ui_pipeline.destroy(self);
 
@@ -130,11 +294,22 @@ pub const VulkanApp = struct {
             .pNext = null,
             .renderPass = self.render_pass,
             .framebuffer = self.framebuffers[image_index],
-            .renderArea = .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{ .width = gc.WIDTH, .height = gc.HEIGHT } },
+            .renderArea = .{
+                .offset = .{ .x = 0, .y = 0 },
+                .extent = .{ .width = gc.WIDTH, .height = gc.HEIGHT },
+            },
             .clearValueCount = 1,
             .pClearValues = &.{ .color = .{ .float32 = .{ 0.1, 0.1, 0.1, 1.0 } } },
         };
         vk.vkCmdBeginRenderPass(command_buffer, &bi, vk.VK_SUBPASS_CONTENTS_INLINE);
+
+        // UI
+        vk.vkCmdBindPipeline(command_buffer, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.ui_pipeline.pipeline);
+        const offset: vk.VkDeviceSize = 0;
+        vk.vkCmdBindVertexBuffers(command_buffer, 0, 1, &self.model.vertex_buffer.buffer, &offset);
+        vk.vkCmdBindIndexBuffer(command_buffer, self.model.index_buffer.buffer, offset, vk.VK_INDEX_TYPE_UINT32);
+        // TODO: データをバインドしてインスタンシングで描画する。
+        vk.vkCmdDrawIndexed(command_buffer, self.model.indices_count, 1, 0, 0, 0);
 
         vk.vkCmdEndRenderPass(command_buffer);
 
