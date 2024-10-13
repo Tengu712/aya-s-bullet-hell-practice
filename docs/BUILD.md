@@ -2,10 +2,23 @@
 
 現状、Windowsにおける開発のみを想定している。
 
-以下の手順でビルドする：
+以下を確認する：
 
-1. zig 0.13.0をインストール
-2. Vulkan SDKをインストール
-3. 環境変数`VULKAN_INCLUDE_PATH`にVulkan SDKの`Include`ディレクトリまでのパスを登録
-4. 環境変数`VULKAN_LIBRARY_PATH`にVulkan SDKの`Lib`ディレクトリまでのパスを登録
-5. `zig build`を実行
+- Vulkan SDKが使える
+  - Vulkan SDKの`Include`ディレクトリまでのパスが環境変数`VULKAN_INCLUDE_PATH`に登録されている
+  - Vulkan SDKの`Library`ディレクトリまでのパスが環境変数`VULKAN_LIBRARY_PATH`に登録されている
+  - `glslc`コマンドとしてglslcが使える
+- `py`コマンドとしてPython3が使える
+- zig 0.13.0が使える
+
+次を実行してビルドする：
+
+```
+zig build
+```
+
+`run`を追加してビルド&実行できる：
+
+```
+zig build run
+```
