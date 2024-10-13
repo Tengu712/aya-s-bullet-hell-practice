@@ -130,9 +130,9 @@ pub const VulkanApp = struct {
             .pNext = null,
             .renderPass = self.render_pass,
             .framebuffer = self.framebuffers[image_index],
-            .renderArea = vk.VkRect2D{ .offset = vk.VkOffset2D{ .x = 0, .y = 0 }, .extent = vk.VkExtent2D{ .width = gc.WIDTH, .height = gc.HEIGHT } },
+            .renderArea = .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{ .width = gc.WIDTH, .height = gc.HEIGHT } },
             .clearValueCount = 1,
-            .pClearValues = &vk.VkClearValue{ .color = vk.VkClearColorValue{ .float32 = [_]f32{ 0.1, 0.1, 0.1, 1.0 } } },
+            .pClearValues = &.{ .color = .{ .float32 = .{ 0.1, 0.1, 0.1, 1.0 } } },
         };
         vk.vkCmdBeginRenderPass(command_buffer, &bi, vk.VK_SUBPASS_CONTENTS_INLINE);
 
@@ -145,27 +145,24 @@ pub const VulkanApp = struct {
         // NOTE: コマンドバッファを提出する。
         //       semaphore_image_enabledがシグナルされるまで待機する・つまりすぐ実行される。
         //       コマンドが完遂されたときsemaphore_renderingがシグナルされる。
-        const masks = [_]vk.VkPipelineStageFlags{vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-        const sis = [_]vk.VkSubmitInfo{
-            vk.VkSubmitInfo{
-                .sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                .pNext = null,
-                .waitSemaphoreCount = 1,
-                .pWaitSemaphores = &self.semaphore_image_enabled,
-                .pWaitDstStageMask = &masks,
-                .commandBufferCount = 1,
-                .pCommandBuffers = &command_buffer,
-                .signalSemaphoreCount = 1,
-                .pSignalSemaphores = &self.semaphore_rendering,
-            },
+        const sis = vk.VkSubmitInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .pNext = null,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &self.semaphore_image_enabled,
+            .pWaitDstStageMask = &@intCast(vk.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+            .commandBufferCount = 1,
+            .pCommandBuffers = &command_buffer,
+            .signalSemaphoreCount = 1,
+            .pSignalSemaphores = &self.semaphore_rendering,
         };
-        if (vk.vkQueueSubmit(self.queue, sis.len, &sis, null) != vk.VK_SUCCESS) {
+        if (vk.vkQueueSubmit(self.queue, 1, &sis, null) != vk.VK_SUCCESS) {
             return error.Submittion;
         }
 
         // NOTE: プレゼンテーションコマンドをエンキューする
         //       semaphore_renderingがシグナルされるまで・つまりコマンドが完遂されるまで待機する。
-        var results = [_]vk.VkResult{vk.VK_SUCCESS};
+        var results = vk.VK_SUCCESS;
         const pi = vk.VkPresentInfoKHR{
             .sType = vk.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .pNext = null,
@@ -179,7 +176,7 @@ pub const VulkanApp = struct {
         if (vk.vkQueuePresentKHR(self.queue, &pi) != vk.VK_SUCCESS) {
             return error.Presentation;
         }
-        if (results[0] != vk.VK_SUCCESS) {
+        if (results != vk.VK_SUCCESS) {
             return error.Presentation;
         }
     }
@@ -275,15 +272,13 @@ fn createDevice(vapp: *VulkanApp) Error!void {
         .pNext = null,
         .flags = 0,
         .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &[_]vk.VkDeviceQueueCreateInfo{
-            vk.VkDeviceQueueCreateInfo{
-                .sType = vk.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                .pNext = null,
-                .flags = 0,
-                .queueFamilyIndex = vapp.queue_family_index,
-                .queueCount = 1,
-                .pQueuePriorities = &[_]f32{1.0},
-            },
+        .pQueueCreateInfos = &.{
+            .sType = vk.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .queueFamilyIndex = vapp.queue_family_index,
+            .queueCount = 1,
+            .pQueuePriorities = &[_]f32{1.0},
         },
         .enabledLayerCount = DEVICE_ENABLED_LAYER_COUNT,
         .ppEnabledLayerNames = &DEVICE_ENABLED_LAYER_NAMES,
@@ -368,7 +363,7 @@ fn createSwapchain(vapp: *VulkanApp) Error!void {
         .minImageCount = SWAPCHAIN_IMAGE_COUNT,
         .imageFormat = RENDER_TARGET_PIXEL_FORMAT,
         .imageColorSpace = RENDER_TARGET_COLOR_SPACE,
-        .imageExtent = vk.VkExtent2D{ .width = gc.WIDTH, .height = gc.HEIGHT },
+        .imageExtent = .{ .width = gc.WIDTH, .height = gc.HEIGHT },
         .imageArrayLayers = 1,
         .imageUsage = vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         .imageSharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
@@ -407,8 +402,8 @@ fn createSwapchainImageView(vapp: *VulkanApp) Error!void {
             .image = n,
             .viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
             .format = RENDER_TARGET_PIXEL_FORMAT,
-            .components = vk.VkComponentMapping{ .r = 0, .g = 0, .b = 0, .a = 0 },
-            .subresourceRange = vk.VkImageSubresourceRange{
+            .components = .{ .r = 0, .g = 0, .b = 0, .a = 0 },
+            .subresourceRange = .{
                 .aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseMipLevel = 0,
                 .levelCount = 1,
@@ -440,7 +435,7 @@ fn createRenderPass(vapp: *VulkanApp) Error!void {
     const attachment_descs = [_]vk.VkAttachmentDescription{
         // 0
         // undefinedからスワップチェーンイメージへ
-        vk.VkAttachmentDescription{
+        .{
             .flags = 0,
             .format = RENDER_TARGET_PIXEL_FORMAT,
             .samples = vk.VK_SAMPLE_COUNT_1_BIT,
@@ -455,17 +450,15 @@ fn createRenderPass(vapp: *VulkanApp) Error!void {
     const subpass_descs = [_]vk.VkSubpassDescription{
         // 入力なし
         // 0へ出力
-        vk.VkSubpassDescription{
+        .{
             .flags = 0,
             .pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
             .inputAttachmentCount = 0,
             .pInputAttachments = null,
             .colorAttachmentCount = 1,
-            .pColorAttachments = &[_]vk.VkAttachmentReference{
-                vk.VkAttachmentReference{
-                    .attachment = 0,
-                    .layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                },
+            .pColorAttachments = &.{
+                .attachment = 0,
+                .layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             },
             .pResolveAttachments = null,
             .pDepthStencilAttachment = null,
