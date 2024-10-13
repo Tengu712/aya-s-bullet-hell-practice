@@ -1,8 +1,10 @@
 const std = @import("std");
-const vk = @cImport({
+// NOTE: 他モジュールでも共有できるようpubにする。
+pub const vk = @cImport({
     @cDefine("VK_USE_PLATFORM_WIN32_KHR", "");
     @cInclude("vulkan/vulkan.h");
 });
+const ui = @import("ui.zig");
 const gc = @import("../gc.zig");
 const windows = @import("../window/windows.zig");
 
@@ -62,7 +64,10 @@ pub const VulkanApp = struct {
     render_pass: vk.VkRenderPass = null,
     framebuffers: []vk.VkFramebuffer = undefined,
 
-    pub fn new(wapp: windows.WindowApp) Error!VulkanApp {
+    // pipelines
+    ui_pipeline: ui.UiPipeline = undefined,
+
+    pub fn new(wapp: windows.WindowApp) (Error || ui.Error)!VulkanApp {
         var vapp = VulkanApp{};
 
         try createInstance(&vapp);
@@ -81,11 +86,15 @@ pub const VulkanApp = struct {
         try createRenderPass(&vapp);
         try createFramebuffers(&vapp);
 
+        vapp.ui_pipeline = try ui.UiPipeline.new(vapp);
+
         return vapp;
     }
 
     pub fn destroy(self: @This()) void {
         _ = vk.vkDeviceWaitIdle(self.device);
+
+        self.ui_pipeline.destroy(self);
 
         for (self.framebuffers) |n| {
             vk.vkDestroyFramebuffer(self.device, n, null);
