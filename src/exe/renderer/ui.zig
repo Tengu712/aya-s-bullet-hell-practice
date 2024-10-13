@@ -73,26 +73,18 @@ fn createPipelineLayout(pipeline: *UiPipeline, vapp: vulkan.VulkanApp) Error!voi
 }
 
 fn createShaderModule(vapp: vulkan.VulkanApp, file: []const u8) Error!vk.VkShaderModule {
-    // OPTIMIZE: file.ptrを[*]u32に変換することができなかったため、新しく[]u32を作成している。
-    //           一時的なメモリとはいえ、なんだか気に食わないので直したい。
-    //           ただ、zig的にどうあがいても解決できない可能性もある。
-    const code = ALLOCATOR.alloc(u32, file.len / @sizeOf(u32)) catch {
-        return error.ShaderModuleCreation;
-    };
-    defer ALLOCATOR.free(code);
-    for (code, 0..) |*n, i| {
-        const o = i * 4;
-        const b = [_]u8{ file[o], file[o + 1], file[o + 2], file[o + 3] };
-        n.* = std.mem.readInt(u32, &b, .little);
-    }
-
+    // NOTE: `@ptrCast(@alignCast(file.ptr))`でincorrect alignmentと怒られないようにするため。
+    //       一体なんのための`@alignCast()`なのか……。
+    //       この設定がどのスコープで効くのかわからないのが怖い。
+    //       (今、 https://ziglang.org/documentation/ 全体が404を返してくるので確認できない）
+    @setRuntimeSafety(false);
     var shader_module: vk.VkShaderModule = null;
     const ci = vk.VkShaderModuleCreateInfo{
         .sType = vk.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .pNext = null,
         .flags = 0,
         .codeSize = file.len,
-        .pCode = code.ptr,
+        .pCode = @ptrCast(@alignCast(file.ptr)),
     };
     if (vk.vkCreateShaderModule(vapp.device, &ci, null, &shader_module) != vk.VK_SUCCESS) {
         return error.ShaderModuleCreation;
