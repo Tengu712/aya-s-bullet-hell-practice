@@ -295,6 +295,12 @@ pub const Model = struct {
 /// エンティティのデータのための構造体
 pub const Entity = struct {
     world: [16]f32,
+    uv: [4]f32,
+    color: [4]f32,
+    // NOTE: アラインメントを64byteにしないと怒られるため。
+    dummy1: [4]f32,
+    // NOTE: アラインメントを64byteにしないと怒られるため。
+    dummy2: [4]f32,
 
     pub fn default() Entity {
         return .{
@@ -304,6 +310,10 @@ pub const Entity = struct {
                 0.0, 0.0, 1.0, 0.0,
                 0.0, 0.0, 0.0, 1.0,
             },
+            .uv = .{ 0.0, 0.0, 1.0, 1.0 },
+            .color = .{ 1.0, 1.0, 1.0, 1.0 },
+            .dummy1 = .{ 0.0, 0.0, 0.0, 0.0 },
+            .dummy2 = .{ 0.0, 0.0, 0.0, 0.0 },
         };
     }
 };
@@ -1183,6 +1193,10 @@ fn createUniformBufferEntities(vapp: *VulkanApp) Error!void {
                 0.0,   0.0,   1.0, 0.0,
                 0.0,   0.0,   0.0, 1.0,
             },
+            .uv = .{ 0.0, 0.0, 1.0, 1.0 },
+            .color = .{ 1.0, 0.0, 0.0, 1.0 },
+            .dummy1 = .{ 0.0, 0.0, 0.0, 0.0 },
+            .dummy2 = .{ 0.0, 0.0, 0.0, 0.0 },
         },
         Entity{
             .world = .{
@@ -1191,6 +1205,10 @@ fn createUniformBufferEntities(vapp: *VulkanApp) Error!void {
                 0.0,   0.0,   1.0, 0.0,
                 0.0,   0.0,   0.0, 1.0,
             },
+            .uv = .{ 0.0, 0.0, 1.0, 1.0 },
+            .color = .{ 0.0, 1.0, 0.0, 1.0 },
+            .dummy1 = .{ 0.0, 0.0, 0.0, 0.0 },
+            .dummy2 = .{ 0.0, 0.0, 0.0, 0.0 },
         },
     };
     try vapp.uniform_buffer_entities.memory.update(vapp.*, Entity, &data);
