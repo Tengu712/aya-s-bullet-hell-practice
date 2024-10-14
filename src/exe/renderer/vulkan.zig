@@ -321,7 +321,7 @@ pub const VulkanApp = struct {
     // presentation
     surface: vk.VkSurfaceKHR = null,
     swapchain: vk.VkSwapchainKHR = null,
-    swapchain_image_views: []vk.VkImageView = undefined,
+    swapchain_image_views: [SWAPCHAIN_IMAGE_COUNT]vk.VkImageView = undefined,
     /// 描画開始待機用のセマフォ
     semaphore_image_enabled: vk.VkSemaphore = null,
     /// 描画完了待機用のセマフォ
@@ -330,7 +330,7 @@ pub const VulkanApp = struct {
     // rendering
     render_pass: vk.VkRenderPass = null,
     depth_buffers: [SWAPCHAIN_IMAGE_COUNT]Image = undefined,
-    framebuffers: []vk.VkFramebuffer = undefined,
+    framebuffers: [SWAPCHAIN_IMAGE_COUNT]vk.VkFramebuffer = undefined,
 
     // pipeline
     descriptor_set_layout: vk.VkDescriptorSetLayout = null,
@@ -415,7 +415,6 @@ pub const VulkanApp = struct {
         for (self.depth_buffers) |n| {
             n.destroy(self);
         }
-        ALLOCATOR.free(self.framebuffers);
         vk.vkDestroyRenderPass(self.device, self.render_pass, null);
 
         vk.vkDestroySemaphore(self.device, self.semaphore_rendering, null);
@@ -423,7 +422,6 @@ pub const VulkanApp = struct {
         for (self.swapchain_image_views) |n| {
             vk.vkDestroyImageView(self.device, n, null);
         }
-        ALLOCATOR.free(self.swapchain_image_views);
         vk.vkDestroySwapchainKHR(self.device, self.swapchain, null);
         vk.vkDestroySurfaceKHR(self.instance, self.surface, null);
 
@@ -720,19 +718,14 @@ fn createSwapchain(vapp: *VulkanApp) Error!void {
 }
 
 fn createSwapchainImageView(vapp: *VulkanApp) Error!void {
-    const images = ALLOCATOR.alloc(vk.VkImage, SWAPCHAIN_IMAGE_COUNT) catch {
-        return error.SwapchainImageViewCreation;
-    };
-    defer ALLOCATOR.free(images);
+    // NOTE: どうせSWAPCHAIN_IMAGE_COUNT枚しか要らないので。
+    var images: [SWAPCHAIN_IMAGE_COUNT]vk.VkImage = undefined;
     // TODO: 必要なので定義している。
     //       何らかの不都合があったときに値が変わる？
     var count: u32 = SWAPCHAIN_IMAGE_COUNT;
-    if (vk.vkGetSwapchainImagesKHR(vapp.device, vapp.swapchain, &count, images.ptr) != vk.VK_SUCCESS) {
+    if (vk.vkGetSwapchainImagesKHR(vapp.device, vapp.swapchain, &count, &images) != vk.VK_SUCCESS) {
         return error.SwapchainImageViewCreation;
     }
-    vapp.swapchain_image_views = ALLOCATOR.alloc(vk.VkImageView, images.len) catch {
-        return error.SwapchainImageViewCreation;
-    };
     for (images, 0..) |n, i| {
         const ci = vk.VkImageViewCreateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -839,9 +832,6 @@ fn createRenderPass(vapp: *VulkanApp) Error!void {
 }
 
 fn createFramebuffers(vapp: *VulkanApp) Error!void {
-    vapp.framebuffers = ALLOCATOR.alloc(vk.VkFramebuffer, SWAPCHAIN_IMAGE_COUNT) catch {
-        return error.FramebuffersCreation;
-    };
     for (0..SWAPCHAIN_IMAGE_COUNT) |i| {
         const ci = vk.VkFramebufferCreateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
