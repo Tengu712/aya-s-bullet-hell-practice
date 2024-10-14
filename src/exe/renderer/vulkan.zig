@@ -18,6 +18,7 @@ const DEVICE_ENABLED_EXTENSION_NAMES = [_][*c]const u8{"VK_KHR_swapchain"};
 const DEVICE_ENABLED_EXTENSION_COUNT = DEVICE_ENABLED_EXTENSION_NAMES.len;
 const RENDER_TARGET_PIXEL_FORMAT = vk.VK_FORMAT_B8G8R8A8_SRGB;
 const RENDER_TARGET_COLOR_SPACE = vk.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+const DEPTH_TEST_ATTACHMENT_FORMAT = vk.VK_FORMAT_D32_SFLOAT;
 const SWAPCHAIN_IMAGE_COUNT = 2;
 const ENTITIES_MAX_COUNT = 2;
 
@@ -49,6 +50,7 @@ pub const Error = error{
     MemoryAllocation,
     MemoryUpdating,
     BufferCreation,
+    ImageCreation,
     ModelCreation,
 };
 
@@ -156,6 +158,93 @@ pub const Buffer = struct {
     }
 };
 
+/// イメージを管理するオブジェクト
+pub const Image = struct {
+    image: vk.VkImage,
+    image_view: vk.VkImageView,
+    memory: Memory,
+    memory_requirements: vk.VkMemoryRequirements,
+
+    pub fn new(
+        vapp: VulkanApp,
+        flags: vk.VkMemoryPropertyFlags,
+        usage: vk.VkBufferUsageFlags,
+        aspect: vk.VkImageAspectFlags,
+        format: vk.VkFormat,
+        extent: vk.VkExtent3D,
+    ) Error!Image {
+        const ci = vk.VkImageCreateInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .imageType = vk.VK_IMAGE_TYPE_2D,
+            .format = format,
+            .extent = extent,
+            .mipLevels = 1,
+            .arrayLayers = 1,
+            .samples = vk.VK_SAMPLE_COUNT_1_BIT,
+            .tiling = vk.VK_IMAGE_TILING_OPTIMAL,
+            .usage = usage,
+            .sharingMode = vk.VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 0,
+            .pQueueFamilyIndices = null,
+            .initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+        };
+        var image: vk.VkImage = null;
+        if (vk.vkCreateImage(vapp.device, &ci, null, &image) != vk.VK_SUCCESS) {
+            return error.ImageCreation;
+        }
+
+        var memory_requirements: vk.VkMemoryRequirements = undefined;
+        vk.vkGetImageMemoryRequirements(vapp.device, image, &memory_requirements);
+
+        const memory = try Memory.new(vapp, flags, memory_requirements.memoryTypeBits, memory_requirements.size);
+        if (vk.vkBindImageMemory(vapp.device, image, memory.device_memory, 0) != vk.VK_SUCCESS) {
+            return error.ImageCreation;
+        }
+
+        // NOTE: イメージビューの作成はメモリのバインドの後でないと怒られる。
+        const image_view_ci = vk.VkImageViewCreateInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .image = image,
+            .viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
+            .format = format,
+            .components = .{
+                .r = vk.VK_COMPONENT_SWIZZLE_R,
+                .g = vk.VK_COMPONENT_SWIZZLE_G,
+                .b = vk.VK_COMPONENT_SWIZZLE_B,
+                .a = vk.VK_COMPONENT_SWIZZLE_A,
+            },
+            .subresourceRange = .{
+                .aspectMask = aspect,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        };
+        var image_view: vk.VkImageView = null;
+        if (vk.vkCreateImageView(vapp.device, &image_view_ci, null, &image_view) != vk.VK_SUCCESS) {
+            return error.ImageCreation;
+        }
+
+        return .{
+            .image = image,
+            .image_view = image_view,
+            .memory = memory,
+            .memory_requirements = memory_requirements,
+        };
+    }
+
+    pub fn destroy(self: @This(), vapp: VulkanApp) void {
+        vk.vkDestroyImageView(vapp.device, self.image_view, null);
+        self.memory.destroy(vapp);
+        vk.vkDestroyImage(vapp.device, self.image, null);
+    }
+};
+
 /// 正方形モデルのデータのための構造体
 pub const Model = struct {
     vertex_buffer: Buffer,
@@ -240,6 +329,7 @@ pub const VulkanApp = struct {
 
     // rendering
     render_pass: vk.VkRenderPass = null,
+    depth_buffers: [SWAPCHAIN_IMAGE_COUNT]Image = undefined,
     framebuffers: []vk.VkFramebuffer = undefined,
 
     // pipeline
@@ -277,6 +367,16 @@ pub const VulkanApp = struct {
         try createSemaphores(&vapp);
 
         try createRenderPass(&vapp);
+        for (0..vapp.depth_buffers.len) |i| {
+            vapp.depth_buffers[i] = try Image.new(
+                vapp,
+                vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                vk.VK_IMAGE_ASPECT_DEPTH_BIT,
+                DEPTH_TEST_ATTACHMENT_FORMAT,
+                .{ .width = gc.WIDTH, .height = gc.HEIGHT, .depth = 1 },
+            );
+        }
         try createFramebuffers(&vapp);
 
         try createDescriptorSetLayout(&vapp);
@@ -311,6 +411,9 @@ pub const VulkanApp = struct {
 
         for (self.framebuffers) |n| {
             vk.vkDestroyFramebuffer(self.device, n, null);
+        }
+        for (self.depth_buffers) |n| {
+            n.destroy(self);
         }
         ALLOCATOR.free(self.framebuffers);
         vk.vkDestroyRenderPass(self.device, self.render_pass, null);
@@ -347,8 +450,11 @@ pub const VulkanApp = struct {
                 .offset = .{ .x = 0, .y = 0 },
                 .extent = .{ .width = gc.WIDTH, .height = gc.HEIGHT },
             },
-            .clearValueCount = 1,
-            .pClearValues = &.{ .color = .{ .float32 = .{ 0.0, 0.0, 0.0, 1.0 } } },
+            .clearValueCount = 2,
+            .pClearValues = &[_]vk.VkClearValue{
+                .{ .color = .{ .float32 = .{ 0.0, 0.0, 0.0, 1.0 } } },
+                .{ .depthStencil = .{ .depth = 1.0, .stencil = 0.0 } },
+            },
         };
         vk.vkCmdBeginRenderPass(command_buffer, &bi, vk.VK_SUBPASS_CONTENTS_INLINE);
 
@@ -679,10 +785,24 @@ fn createRenderPass(vapp: *VulkanApp) Error!void {
             .initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
             .finalLayout = vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
         },
+        // 1
+        // undefinedからデプスステンシルアタッチメントへ
+        .{
+            .flags = 0,
+            .format = DEPTH_TEST_ATTACHMENT_FORMAT,
+            .samples = vk.VK_SAMPLE_COUNT_1_BIT,
+            .loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
+            .stencilLoadOp = vk.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = vk.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = vk.VK_IMAGE_LAYOUT_UNDEFINED,
+            .finalLayout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        },
     };
     const subpass_descs = [_]vk.VkSubpassDescription{
         // 入力なし
-        // 0へ出力
+        // - カラーは0へ
+        // - デプスは1へ
         .{
             .flags = 0,
             .pipelineBindPoint = vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -694,7 +814,10 @@ fn createRenderPass(vapp: *VulkanApp) Error!void {
                 .layout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             },
             .pResolveAttachments = null,
-            .pDepthStencilAttachment = null,
+            .pDepthStencilAttachment = &.{
+                .attachment = 1,
+                .layout = vk.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            },
             .preserveAttachmentCount = 0,
             .pPreserveAttachments = null,
         },
@@ -719,14 +842,17 @@ fn createFramebuffers(vapp: *VulkanApp) Error!void {
     vapp.framebuffers = ALLOCATOR.alloc(vk.VkFramebuffer, SWAPCHAIN_IMAGE_COUNT) catch {
         return error.FramebuffersCreation;
     };
-    for (vapp.swapchain_image_views, 0..) |n, i| {
+    for (0..SWAPCHAIN_IMAGE_COUNT) |i| {
         const ci = vk.VkFramebufferCreateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
             .pNext = null,
             .flags = 0,
             .renderPass = vapp.render_pass,
-            .attachmentCount = 1,
-            .pAttachments = &n,
+            .attachmentCount = 2,
+            .pAttachments = &[_]vk.VkImageView{
+                vapp.swapchain_image_views[i],
+                vapp.depth_buffers[i].image_view,
+            },
             .width = gc.WIDTH,
             .height = gc.HEIGHT,
             .layers = 1,
@@ -914,7 +1040,42 @@ fn createPipeline(vapp: *VulkanApp) Error!void {
             .alphaToCoverageEnable = vk.VK_FALSE,
             .alphaToOneEnable = vk.VK_FALSE,
         },
-        .pDepthStencilState = null,
+        // デプステスト
+        // 古い深度値より小さい場合に限り合格
+        .pDepthStencilState = &.{
+            .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .depthTestEnable = vk.VK_TRUE,
+            .depthWriteEnable = vk.VK_TRUE,
+            .depthCompareOp = vk.VK_COMPARE_OP_LESS,
+            .depthBoundsTestEnable = vk.VK_FALSE,
+            .stencilTestEnable = vk.VK_FALSE,
+            // NOTE: ステンシルテストが無効なのですべて0。
+            .front = .{
+                .failOp = 0,
+                .passOp = 0,
+                .depthFailOp = 0,
+                .compareOp = 0,
+                .compareMask = 0,
+                .writeMask = 0,
+                .reference = 0,
+            },
+            // NOTE: ステンシルテストが無効なのですべて0。
+            .back = .{
+                .failOp = 0,
+                .passOp = 0,
+                .depthFailOp = 0,
+                .compareOp = 0,
+                .compareMask = 0,
+                .writeMask = 0,
+                .reference = 0,
+            },
+            // NOTE: 深度境界テストが無効なのですべて0。
+            .minDepthBounds = 0.0,
+            // NOTE: 深度境界テストが無効なのですべて0。
+            .maxDepthBounds = 0.0,
+        },
         // カラーブレンド
         // - src: alpha
         // - dst: 1 - alpha
