@@ -2,7 +2,7 @@ import os
 import time
 import subprocess
 
-names = ["ui.vert", "ui.frag"]
+names = ["shader.vert", "shader.frag"]
 
 cwd = os.getcwd()
 cachedir = os.path.dirname(__file__) + "/cache/"

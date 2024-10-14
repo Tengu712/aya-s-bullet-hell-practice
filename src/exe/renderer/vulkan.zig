@@ -1,10 +1,9 @@
 const std = @import("std");
-// NOTE: 他モジュールでも共有できるようpubにする。
-pub const vk = @cImport({
+const shader = @import("shader");
+const vk = @cImport({
     @cDefine("VK_USE_PLATFORM_WIN32_KHR", "");
     @cInclude("vulkan/vulkan.h");
 });
-const ui = @import("ui.zig");
 const gc = @import("../gc.zig");
 const windows = @import("../window/windows.zig");
 
@@ -34,6 +33,10 @@ pub const Error = error{
     SemaphoreCreation,
     RenderPassCreation,
     FramebuffersCreation,
+    DescriptorSetLayoutCreation,
+    PipelineLayoutCreation,
+    ShaderModuleCreation,
+    PipelineCreation,
     CommandBufferCreation,
     CommandBufferStarting,
     CommandBufferEnding,
@@ -219,15 +222,19 @@ pub const VulkanApp = struct {
     render_pass: vk.VkRenderPass = null,
     framebuffers: []vk.VkFramebuffer = undefined,
 
-    // pipelines
-    ui_pipeline: ui.UiPipeline = undefined,
+    // pipeline
+    descriptor_set_layout: vk.VkDescriptorSetLayout = null,
+    pipeline_layout: vk.VkPipelineLayout = null,
+    vertex_shader: vk.VkShaderModule = null,
+    fragment_shader: vk.VkShaderModule = null,
+    pipeline: vk.VkPipeline = null,
 
     // other
     // NOTE: 正方形モデル。
     //       単純な2Dゲームなので正方形モデルしか扱わない。
     model: Model = undefined,
 
-    pub fn new(wapp: windows.WindowApp) (Error || ui.Error)!VulkanApp {
+    pub fn new(wapp: windows.WindowApp) Error!VulkanApp {
         var vapp = VulkanApp{};
 
         try createInstance(&vapp);
@@ -246,7 +253,11 @@ pub const VulkanApp = struct {
         try createRenderPass(&vapp);
         try createFramebuffers(&vapp);
 
-        vapp.ui_pipeline = try ui.UiPipeline.new(vapp);
+        try createDescriptorSetLayout(&vapp);
+        try createPipelineLayout(&vapp);
+        vapp.vertex_shader = try createShaderModule(vapp, shader.VERTEX_SHADER_FILE);
+        vapp.fragment_shader = try createShaderModule(vapp, shader.FRAGMENT_SHADER_FILE);
+        try createPipeline(&vapp);
 
         vapp.model = try Model.new(vapp);
 
@@ -258,7 +269,11 @@ pub const VulkanApp = struct {
 
         self.model.destroy(self);
 
-        self.ui_pipeline.destroy(self);
+        vk.vkDestroyPipeline(self.device, self.pipeline, null);
+        vk.vkDestroyShaderModule(self.device, self.fragment_shader, null);
+        vk.vkDestroyShaderModule(self.device, self.vertex_shader, null);
+        vk.vkDestroyPipelineLayout(self.device, self.pipeline_layout, null);
+        vk.vkDestroyDescriptorSetLayout(self.device, self.descriptor_set_layout, null);
 
         for (self.framebuffers) |n| {
             vk.vkDestroyFramebuffer(self.device, n, null);
@@ -304,7 +319,7 @@ pub const VulkanApp = struct {
         vk.vkCmdBeginRenderPass(command_buffer, &bi, vk.VK_SUBPASS_CONTENTS_INLINE);
 
         // UI
-        vk.vkCmdBindPipeline(command_buffer, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.ui_pipeline.pipeline);
+        vk.vkCmdBindPipeline(command_buffer, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline);
         const offset: vk.VkDeviceSize = 0;
         vk.vkCmdBindVertexBuffers(command_buffer, 0, 1, &self.model.vertex_buffer.buffer, &offset);
         vk.vkCmdBindIndexBuffer(command_buffer, self.model.index_buffer.buffer, offset, vk.VK_INDEX_TYPE_UINT32);
@@ -676,5 +691,201 @@ fn createFramebuffers(vapp: *VulkanApp) Error!void {
         if (vk.vkCreateFramebuffer(vapp.device, &ci, null, &vapp.framebuffers[i]) != vk.VK_SUCCESS) {
             return error.FramebuffersCreation;
         }
+    }
+}
+
+fn createDescriptorSetLayout(vapp: *VulkanApp) Error!void {
+    // NOTE: 将来的にバインドするために空配列を作っている。
+    const bindings = [_]vk.VkDescriptorSetLayoutBinding{};
+    const ci = vk.VkDescriptorSetLayoutCreateInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = null,
+        .flags = 0,
+        .bindingCount = bindings.len,
+        .pBindings = &bindings,
+    };
+    if (vk.vkCreateDescriptorSetLayout(vapp.device, &ci, null, &vapp.descriptor_set_layout) != vk.VK_SUCCESS) {
+        return error.DescriptorSetLayoutCreation;
+    }
+}
+
+fn createPipelineLayout(vapp: *VulkanApp) Error!void {
+    const set_layouts = [_]vk.VkDescriptorSetLayout{vapp.descriptor_set_layout};
+    const ci = vk.VkPipelineLayoutCreateInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pNext = null,
+        .flags = 0,
+        .setLayoutCount = set_layouts.len,
+        .pSetLayouts = &set_layouts,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = null,
+    };
+    if (vk.vkCreatePipelineLayout(vapp.device, &ci, null, &vapp.pipeline_layout) != vk.VK_SUCCESS) {
+        return error.PipelineLayoutCreation;
+    }
+}
+
+fn createShaderModule(vapp: VulkanApp, file: []const u8) Error!vk.VkShaderModule {
+    // NOTE: `@ptrCast(@alignCast(file.ptr))`でincorrect alignmentと怒られないようにするため。
+    //       一体なんのための`@alignCast()`なのか……。
+    //       この設定がどのスコープで効くのかわからないのが怖い。
+    //       (今、 https://ziglang.org/documentation/ 全体が404を返してくるので確認できない）
+    @setRuntimeSafety(false);
+    var shader_module: vk.VkShaderModule = null;
+    const ci = vk.VkShaderModuleCreateInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .pNext = null,
+        .flags = 0,
+        .codeSize = file.len,
+        .pCode = @ptrCast(@alignCast(file.ptr)),
+    };
+    if (vk.vkCreateShaderModule(vapp.device, &ci, null, &shader_module) != vk.VK_SUCCESS) {
+        return error.ShaderModuleCreation;
+    }
+    return shader_module;
+}
+
+fn createPipeline(vapp: *VulkanApp) Error!void {
+    const ci = vk.VkGraphicsPipelineCreateInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = null,
+        .flags = 0,
+        .stageCount = 2,
+        // シェーダ
+        .pStages = &[_]vk.VkPipelineShaderStageCreateInfo{
+            .{
+                .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .pNext = null,
+                .flags = 0,
+                .stage = vk.VK_SHADER_STAGE_VERTEX_BIT,
+                .module = vapp.vertex_shader,
+                .pName = "main",
+                .pSpecializationInfo = null,
+            },
+            .{
+                .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .pNext = null,
+                .flags = 0,
+                .stage = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+                .module = vapp.fragment_shader,
+                .pName = "main",
+                .pSpecializationInfo = null,
+            },
+        },
+        // 頂点入力
+        // - location 0, binding 0, float*3: ローカル座標
+        .pVertexInputState = &.{
+            .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .vertexBindingDescriptionCount = 1,
+            .pVertexBindingDescriptions = &.{
+                .binding = 0,
+                .stride = @sizeOf(f32) * 3,
+                .inputRate = vk.VK_VERTEX_INPUT_RATE_VERTEX,
+            },
+            .vertexAttributeDescriptionCount = 1,
+            .pVertexAttributeDescriptions = &[_]vk.VkVertexInputAttributeDescription{
+                .{
+                    .location = 0,
+                    .binding = 0,
+                    .format = vk.VK_FORMAT_R32G32B32_SFLOAT,
+                    .offset = 0,
+                },
+            },
+        },
+        // アセンブリステート
+        .pInputAssemblyState = &.{
+            .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .topology = vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            .primitiveRestartEnable = vk.VK_FALSE,
+        },
+        .pTessellationState = null,
+        // ビューポート
+        .pViewportState = &.{
+            .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .viewportCount = 1,
+            .pViewports = &.{
+                .x = 0.0,
+                .y = 0.0,
+                .width = @floatFromInt(gc.WIDTH),
+                .height = @floatFromInt(gc.HEIGHT),
+                .minDepth = 0.0,
+                .maxDepth = 1.0,
+            },
+            .scissorCount = 1,
+            .pScissors = &.{
+                .offset = .{ .x = 0, .y = 0 },
+                .extent = .{ .width = gc.WIDTH, .height = gc.HEIGHT },
+            },
+        },
+        // ラスタライゼーション
+        // - ポリゴン全埋め
+        // - カリング無し
+        // - 反時計回り表
+        .pRasterizationState = &.{
+            .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .depthClampEnable = vk.VK_FALSE,
+            .rasterizerDiscardEnable = vk.VK_FALSE,
+            .polygonMode = vk.VK_POLYGON_MODE_FILL,
+            .cullMode = vk.VK_CULL_MODE_NONE,
+            .frontFace = vk.VK_FRONT_FACE_COUNTER_CLOCKWISE,
+            .depthBiasEnable = vk.VK_FALSE,
+            .depthBiasConstantFactor = 0.0,
+            .depthBiasClamp = 0.0,
+            .depthBiasSlopeFactor = 0.0,
+            .lineWidth = 1.0,
+        },
+        // マルチサンプル
+        // NOTE: マルチサンプリングは行わないが、nullにすると怒られるので。
+        .pMultisampleState = &.{
+            .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .rasterizationSamples = vk.VK_SAMPLE_COUNT_1_BIT,
+            .sampleShadingEnable = vk.VK_FALSE,
+            .minSampleShading = 0.0,
+            .pSampleMask = null,
+            .alphaToCoverageEnable = vk.VK_FALSE,
+            .alphaToOneEnable = vk.VK_FALSE,
+        },
+        .pDepthStencilState = null,
+        // カラーブレンド
+        // - src: alpha
+        // - dst: 1 - alpha
+        .pColorBlendState = &.{
+            .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .logicOpEnable = vk.VK_FALSE,
+            .logicOp = 0,
+            .attachmentCount = 1,
+            .pAttachments = &.{
+                .blendEnable = vk.VK_TRUE,
+                .srcColorBlendFactor = vk.VK_BLEND_FACTOR_SRC_ALPHA,
+                .dstColorBlendFactor = vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                .colorBlendOp = vk.VK_BLEND_OP_ADD,
+                .srcAlphaBlendFactor = vk.VK_BLEND_FACTOR_SRC_ALPHA,
+                .dstAlphaBlendFactor = vk.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                .alphaBlendOp = vk.VK_BLEND_OP_ADD,
+                .colorWriteMask = vk.VK_COLOR_COMPONENT_R_BIT | vk.VK_COLOR_COMPONENT_G_BIT | vk.VK_COLOR_COMPONENT_B_BIT | vk.VK_COLOR_COMPONENT_A_BIT,
+            },
+            .blendConstants = .{ 0.0, 0.0, 0.0, 0.0 },
+        },
+        .pDynamicState = null,
+        .layout = vapp.pipeline_layout,
+        .renderPass = vapp.render_pass,
+        .subpass = 0,
+        .basePipelineHandle = null,
+        .basePipelineIndex = 0,
+    };
+    if (vk.vkCreateGraphicsPipelines(vapp.device, null, 1, &ci, null, &vapp.pipeline) != vk.VK_SUCCESS) {
+        return error.PipelineCreation;
     }
 }
