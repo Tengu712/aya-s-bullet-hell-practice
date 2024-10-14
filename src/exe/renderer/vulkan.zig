@@ -37,6 +37,9 @@ pub const Error = error{
     PipelineLayoutCreation,
     ShaderModuleCreation,
     PipelineCreation,
+    DescriptorPoolCreation,
+    DescriptorSetAllocation,
+    UniformBufferCreation,
     CommandBufferCreation,
     CommandBufferStarting,
     CommandBufferEnding,
@@ -228,6 +231,11 @@ pub const VulkanApp = struct {
     vertex_shader: vk.VkShaderModule = null,
     fragment_shader: vk.VkShaderModule = null,
     pipeline: vk.VkPipeline = null,
+    descriptor_pool: vk.VkDescriptorPool = null,
+    // NOTE: 現状1個で十分。
+    //       背景と前景でわけたときにカメラが変わるので2個必要になるかも。
+    descriptor_set: vk.VkDescriptorSet = null,
+    uniform_buffer_ortho_proj: Buffer = undefined,
 
     // other
     // NOTE: 正方形モデル。
@@ -258,6 +266,9 @@ pub const VulkanApp = struct {
         vapp.vertex_shader = try createShaderModule(vapp, shader.VERTEX_SHADER_FILE);
         vapp.fragment_shader = try createShaderModule(vapp, shader.FRAGMENT_SHADER_FILE);
         try createPipeline(&vapp);
+        try createDescriptorPool(&vapp);
+        try allocateDescriptorSet(&vapp);
+        try createUniformBufferOrthoProjection(&vapp);
 
         vapp.model = try Model.new(vapp);
 
@@ -269,6 +280,9 @@ pub const VulkanApp = struct {
 
         self.model.destroy(self);
 
+        self.uniform_buffer_ortho_proj.destroy(self);
+        _ = vk.vkFreeDescriptorSets(self.device, self.descriptor_pool, 1, &self.descriptor_set);
+        vk.vkDestroyDescriptorPool(self.device, self.descriptor_pool, null);
         vk.vkDestroyPipeline(self.device, self.pipeline, null);
         vk.vkDestroyShaderModule(self.device, self.fragment_shader, null);
         vk.vkDestroyShaderModule(self.device, self.vertex_shader, null);
@@ -314,7 +328,7 @@ pub const VulkanApp = struct {
                 .extent = .{ .width = gc.WIDTH, .height = gc.HEIGHT },
             },
             .clearValueCount = 1,
-            .pClearValues = &.{ .color = .{ .float32 = .{ 0.1, 0.1, 0.1, 1.0 } } },
+            .pClearValues = &.{ .color = .{ .float32 = .{ 0.0, 0.0, 0.0, 1.0 } } },
         };
         vk.vkCmdBeginRenderPass(command_buffer, &bi, vk.VK_SUBPASS_CONTENTS_INLINE);
 
@@ -324,6 +338,16 @@ pub const VulkanApp = struct {
         vk.vkCmdBindVertexBuffers(command_buffer, 0, 1, &self.model.vertex_buffer.buffer, &offset);
         vk.vkCmdBindIndexBuffer(command_buffer, self.model.index_buffer.buffer, offset, vk.VK_INDEX_TYPE_UINT32);
         // TODO: データをバインドしてインスタンシングで描画する。
+        vk.vkCmdBindDescriptorSets(
+            command_buffer,
+            vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
+            self.pipeline_layout,
+            0,
+            1,
+            &self.descriptor_set,
+            0,
+            null,
+        );
         vk.vkCmdDrawIndexed(command_buffer, self.model.indices_count, 1, 0, 0, 0);
 
         vk.vkCmdEndRenderPass(command_buffer);
@@ -695,8 +719,16 @@ fn createFramebuffers(vapp: *VulkanApp) Error!void {
 }
 
 fn createDescriptorSetLayout(vapp: *VulkanApp) Error!void {
-    // NOTE: 将来的にバインドするために空配列を作っている。
-    const bindings = [_]vk.VkDescriptorSetLayoutBinding{};
+    // - binding 0, uniform: proj
+    const bindings = [_]vk.VkDescriptorSetLayoutBinding{
+        .{
+            .binding = 0,
+            .descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
+            .pImmutableSamplers = null,
+        },
+    };
     const ci = vk.VkDescriptorSetLayoutCreateInfo{
         .sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = null,
@@ -888,4 +920,72 @@ fn createPipeline(vapp: *VulkanApp) Error!void {
     if (vk.vkCreateGraphicsPipelines(vapp.device, null, 1, &ci, null, &vapp.pipeline) != vk.VK_SUCCESS) {
         return error.PipelineCreation;
     }
+}
+
+fn createDescriptorPool(vapp: *VulkanApp) Error!void {
+    // - uniform: 1種類
+    const sizes = [_]vk.VkDescriptorPoolSize{
+        .{
+            .type = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1,
+        },
+    };
+    const ci = vk.VkDescriptorPoolCreateInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .pNext = null,
+        .flags = vk.VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        .maxSets = 1,
+        .poolSizeCount = sizes.len,
+        .pPoolSizes = &sizes,
+    };
+    if (vk.vkCreateDescriptorPool(vapp.device, &ci, null, &vapp.descriptor_pool) != vk.VK_SUCCESS) {
+        return error.DescriptorPoolCreation;
+    }
+}
+
+fn allocateDescriptorSet(vapp: *VulkanApp) Error!void {
+    const ai = vk.VkDescriptorSetAllocateInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = null,
+        .descriptorPool = vapp.descriptor_pool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &vapp.descriptor_set_layout,
+    };
+    if (vk.vkAllocateDescriptorSets(vapp.device, &ai, &vapp.descriptor_set) != vk.VK_SUCCESS) {
+        return error.DescriptorSetAllocation;
+    }
+}
+
+fn createUniformBufferOrthoProjection(vapp: *VulkanApp) Error!void {
+    const data = [_]f32{
+        2.0 / @as(f32, @floatFromInt(gc.WIDTH)), 0.0,                                      0.0, 0.0,
+        0.0,                                     2.0 / @as(f32, @floatFromInt(gc.HEIGHT)), 0.0, 0.0,
+        0.0,                                     0.0,                                      1.0, 0.0,
+        0.0,                                     0.0,                                      0.0, 1.0,
+    };
+    vapp.uniform_buffer_ortho_proj = try Buffer.new(
+        vapp.*,
+        vk.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | vk.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        @sizeOf(@TypeOf(data)),
+    );
+    try vapp.uniform_buffer_ortho_proj.memory.update(vapp.*, f32, &data);
+
+    const wi = vk.VkWriteDescriptorSet{
+        .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = null,
+        .dstSet = vapp.descriptor_set,
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = vk.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .pImageInfo = null,
+        .pBufferInfo = &.{
+            .buffer = vapp.uniform_buffer_ortho_proj.buffer,
+            .offset = 0,
+            .range = vk.VK_WHOLE_SIZE,
+        },
+        .pTexelBufferView = null,
+    };
+    vk.vkUpdateDescriptorSets(vapp.device, 1, &wi, 0, null);
 }
