@@ -28,10 +28,12 @@ pub const Error = error{
     QueueFamilyAcquisition,
     DeviceCreation,
     CommandPoolCreation,
+    CommandBufferAllocation,
     SurfaceCreation,
     InvalidSurface,
     SwapchainCreation,
     SwapchainImageViewCreation,
+    FenceCreation,
     SemaphoreCreation,
     RenderPassCreation,
     FramebuffersCreation,
@@ -42,9 +44,11 @@ pub const Error = error{
     DescriptorPoolCreation,
     DescriptorSetAllocation,
     UniformBufferCreation,
-    CommandBufferCreation,
+    CommandBufferResetting,
     CommandBufferStarting,
     CommandBufferEnding,
+    FenceWaiting,
+    FenceResetting,
     Submittion,
     Presentation,
     MemoryAllocation,
@@ -327,11 +331,13 @@ pub const VulkanApp = struct {
     device: vk.VkDevice = null,
     queue: vk.VkQueue = null,
     command_pool: vk.VkCommandPool = null,
+    command_buffers: [SWAPCHAIN_IMAGE_COUNT]vk.VkCommandBuffer = undefined,
 
     // presentation
     surface: vk.VkSurfaceKHR = null,
     swapchain: vk.VkSwapchainKHR = null,
     swapchain_image_views: [SWAPCHAIN_IMAGE_COUNT]vk.VkImageView = undefined,
+    fences: [SWAPCHAIN_IMAGE_COUNT]vk.VkFence = undefined,
     /// 描画開始待機用のセマフォ
     semaphore_image_enabled: vk.VkSemaphore = null,
     /// 描画完了待機用のセマフォ
@@ -370,10 +376,12 @@ pub const VulkanApp = struct {
         try createDevice(&vapp);
         vk.vkGetDeviceQueue(vapp.device, vapp.queue_family_index, 0, &vapp.queue);
         try createCommandPool(&vapp);
+        try allocateCommandBuffers(&vapp);
 
         try createSurface(&vapp, wapp);
         try createSwapchain(&vapp);
         try createSwapchainImageView(&vapp);
+        try createFences(&vapp);
         try createSemaphores(&vapp);
 
         try createRenderPass(&vapp);
@@ -429,12 +437,16 @@ pub const VulkanApp = struct {
 
         vk.vkDestroySemaphore(self.device, self.semaphore_rendering, null);
         vk.vkDestroySemaphore(self.device, self.semaphore_image_enabled, null);
+        for (self.fences) |n| {
+            vk.vkDestroyFence(self.device, n, null);
+        }
         for (self.swapchain_image_views) |n| {
             vk.vkDestroyImageView(self.device, n, null);
         }
         vk.vkDestroySwapchainKHR(self.device, self.swapchain, null);
         vk.vkDestroySurfaceKHR(self.instance, self.surface, null);
 
+        vk.vkFreeCommandBuffers(self.device, self.command_pool, self.command_buffers.len, &self.command_buffers);
         vk.vkDestroyCommandPool(self.device, self.command_pool, null);
         vk.vkDestroyDevice(self.device, null);
         vk.vkDestroyInstance(self.instance, null);
@@ -447,7 +459,30 @@ pub const VulkanApp = struct {
         var image_index: u32 = 0;
         _ = vk.vkAcquireNextImageKHR(self.device, self.swapchain, std.math.maxInt(u64), self.semaphore_image_enabled, null, &image_index);
 
-        const command_buffer = try self.allocateAndStartCommandBuffer();
+        // NOTE: フェンスを待機する。
+        //       直後にコマンドバッファをリセットする都合上、CPUと同期する必要がある。
+        const fence = self.fences[image_index];
+        if (vk.vkWaitForFences(self.device, 1, &fence, vk.VK_TRUE, std.math.maxInt(u64)) != vk.VK_SUCCESS) {
+            return error.FenceWaiting;
+        }
+        if (vk.vkResetFences(self.device, 1, &fence) != vk.VK_SUCCESS) {
+            return error.FenceResetting;
+        }
+
+        // コマンドバッファをリセット&開始
+        const command_buffer = self.command_buffers[image_index];
+        if (vk.vkResetCommandBuffer(command_buffer, vk.VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT) != vk.VK_SUCCESS) {
+            return error.CommandBufferResetting;
+        }
+        const command_buffer_bi = vk.VkCommandBufferBeginInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .pNext = null,
+            .flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            .pInheritanceInfo = null,
+        };
+        if (vk.vkBeginCommandBuffer(command_buffer, &command_buffer_bi) != vk.VK_SUCCESS) {
+            return error.CommandBufferStarting;
+        }
 
         const bi = vk.VkRenderPassBeginInfo{
             .sType = vk.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -503,7 +538,7 @@ pub const VulkanApp = struct {
             .signalSemaphoreCount = 1,
             .pSignalSemaphores = &self.semaphore_rendering,
         };
-        if (vk.vkQueueSubmit(self.queue, 1, &sis, null) != vk.VK_SUCCESS) {
+        if (vk.vkQueueSubmit(self.queue, 1, &sis, fence) != vk.VK_SUCCESS) {
             return error.Submittion;
         }
 
@@ -526,32 +561,6 @@ pub const VulkanApp = struct {
         if (results != vk.VK_SUCCESS) {
             return error.Presentation;
         }
-    }
-
-    fn allocateAndStartCommandBuffer(self: @This()) Error!vk.VkCommandBuffer {
-        const ai = vk.VkCommandBufferAllocateInfo{
-            .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .pNext = null,
-            .commandPool = self.command_pool,
-            .level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = 1,
-        };
-        var command_buffer: vk.VkCommandBuffer = null;
-        if (vk.vkAllocateCommandBuffers(self.device, &ai, &command_buffer) != vk.VK_SUCCESS) {
-            return error.CommandBufferCreation;
-        }
-
-        const bi = vk.VkCommandBufferBeginInfo{
-            .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .pNext = null,
-            .flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-            .pInheritanceInfo = null,
-        };
-        if (vk.vkBeginCommandBuffer(command_buffer, &bi) != vk.VK_SUCCESS) {
-            return error.CommandBufferStarting;
-        }
-
-        return command_buffer;
     }
 };
 
@@ -642,11 +651,24 @@ fn createCommandPool(vapp: *VulkanApp) Error!void {
     const ci = vk.VkCommandPoolCreateInfo{
         .sType = vk.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext = null,
-        .flags = vk.VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         .queueFamilyIndex = vapp.queue_family_index,
     };
     if (vk.vkCreateCommandPool(vapp.device, &ci, null, &vapp.command_pool) != vk.VK_SUCCESS) {
         return error.CommandPoolCreation;
+    }
+}
+
+fn allocateCommandBuffers(vapp: *VulkanApp) Error!void {
+    const ai = vk.VkCommandBufferAllocateInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = null,
+        .commandPool = vapp.command_pool,
+        .level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = SWAPCHAIN_IMAGE_COUNT,
+    };
+    if (vk.vkAllocateCommandBuffers(vapp.device, &ai, &vapp.command_buffers) != vk.VK_SUCCESS) {
+        return error.CommandBufferAllocation;
     }
 }
 
@@ -755,6 +777,19 @@ fn createSwapchainImageView(vapp: *VulkanApp) Error!void {
         };
         if (vk.vkCreateImageView(vapp.device, &ci, null, &vapp.swapchain_image_views[i]) != vk.VK_SUCCESS) {
             return error.SwapchainImageViewCreation;
+        }
+    }
+}
+
+fn createFences(vapp: *VulkanApp) Error!void {
+    for (0..SWAPCHAIN_IMAGE_COUNT) |i| {
+        const ci = vk.VkFenceCreateInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .pNext = null,
+            .flags = vk.VK_FENCE_CREATE_SIGNALED_BIT,
+        };
+        if (vk.vkCreateFence(vapp.device, &ci, null, &vapp.fences[i]) != vk.VK_SUCCESS) {
+            return error.FenceCreation;
         }
     }
 }
