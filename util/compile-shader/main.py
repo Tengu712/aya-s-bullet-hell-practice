@@ -28,4 +28,8 @@ for name in names:
 
     with open(cache, "w"): pass
 
-    subprocess.run(["glslc", "-o", file + ".spv", file])
+    result = subprocess.run(["glslc", "-o", file + ".spv", file])
+
+    if result.returncode != 0:
+        os.remove(cache)
+        exit(1)
