@@ -9,16 +9,11 @@
   - Vulkan SDKの`Library`ディレクトリまでのパスが環境変数`VULKAN_LIBRARY_PATH`に登録されている
   - `glslc`コマンドとしてglslcが使える
 - `py`コマンドとしてPython3が使える
+- .NET Framework 8.0が使える
 - zig 0.13.0が使える
 
 次を実行してビルドする：
 
 ```
-zig build
-```
-
-`run`を追加してビルド&実行できる：
-
-```
-zig build run
+py build.py
 ```

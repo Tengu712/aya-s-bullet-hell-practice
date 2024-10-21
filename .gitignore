@@ -1,5 +1,9 @@
+.cache/
+build/
+
 .zig-cache/
 zig-out/
-cache/
+bin/
+obj/
 
 *.spv
