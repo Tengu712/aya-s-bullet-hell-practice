@@ -1,1 +1,1 @@
-Console.WriteLine("Hellom world!");
+OrgeWrapper.Init();
