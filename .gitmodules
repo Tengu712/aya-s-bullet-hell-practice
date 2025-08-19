@@ -1,0 +1,3 @@
+[submodule "orge"]
+	path = orge
+	url = https://github.com/Tengu712/orge.git
