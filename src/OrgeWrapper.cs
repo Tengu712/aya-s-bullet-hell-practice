@@ -34,4 +34,12 @@ public static class OrgeWrapper
 	{
 		orgeTerminate();
 	}
+
+	[DllImport(LIBRARY_NAME)]
+	private static extern byte orgeUpdate();
+
+	public static bool Update()
+	{
+		return orgeUpdate() != 0;
+	}
 }
