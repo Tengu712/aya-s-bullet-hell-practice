@@ -26,4 +26,12 @@ public static class OrgeWrapper
 			throw new ExternalException("failed to initialize orge.");
 		}
 	}
+
+	[DllImport(LIBRARY_NAME)]
+	private static extern void orgeTerminate();
+
+	public static void Terminate()
+	{
+		orgeTerminate();
+	}
 }

@@ -1,0 +1,10 @@
+title: 射命丸文の弾幕稽古
+width: 1280
+height: 960
+attachments:
+  - id: RT
+    format: render-target
+    clear-value: [0.0, 0.0, 0.0, 0.0]
+subpasses:
+  - id: SP
+    outputs: [RT]

@@ -1,1 +1,2 @@
 OrgeWrapper.Init();
+OrgeWrapper.Terminate();
